@@ -1,0 +1,35 @@
+# UMS API Dockerfile - multi-stage build targeting Linux containers
+# Note: Docker BuildKit is required (docker-compose sets DOCKER_BUILDKIT=1)
+
+# ---------- Build stage ----------
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Copy project files first to leverage layer caching for restore
+COPY ums-api/University.Shared/University.Shared.csproj ums-api/University.Shared/
+COPY ums-api/University.Core/University.Core.csproj ums-api/University.Core/
+COPY ums-api/University.Application/University.Application.csproj ums-api/University.Application/
+COPY ums-api/University.Infrastructure/University.Infrastructure.csproj ums-api/University.Infrastructure/
+COPY ums-api/University.API/University.API.csproj ums-api/University.API/
+
+# Restore the solution
+COPY UMS.sln .
+COPY global.json .
+RUN dotnet restore UMS.sln
+
+# Copy the rest of the source and publish
+COPY . .
+RUN dotnet publish ums-api/University.API/University.API.csproj -c Release -o /app/publish
+
+# ---------- Runtime stage ----------
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+WORKDIR /app
+
+# Select the Docker-specific configuration for containerized connection strings
+ENV ASPNETCORE_ENVIRONMENT=Docker
+ENV ASPNETCORE_URLS=http://+:8080
+
+COPY --from=build /app/publish .
+EXPOSE 8080
+
+ENTRYPOINT ["dotnet", "University.API.dll"]

@@ -1,0 +1,873 @@
+UMS_PROJECT - COMPLETE GOLDEN TREE - 30 TABLES - FROM SCRATCH
+================================================================================
+FILE 1: Tree+SQL.txt - Source of Truth for Structure + Database
+This file combines Full Tree + SQL per instructions
+================================================================================
+
+UMS_Project/ - FINAL CORRECTED - Per ARCHITECTURE_CONFLICTS.md
+│
+├── ARCHITECTURE_CONFLICTS.md
+├── docker-compose.yaml
+├── .env.example
+├── init-scripts/
+│   └── 01-DB_FINAL.sql (30 tables - 29 with BaseEntity, audit_logs separate)
+│
+├── ums-api/ (.NET 8 - Clean Architecture)
+│   │
+│   ├── University.Shared/ (Shared Contracts for Web/Mobile/WPF)
+│   │   ├── Common/
+│   │   │   ├── BaseEntity.cs
+│   │   │   │   // Id:Guid, CreatedAt:DateTime UTC, UpdatedAt:DateTime? UTC, IsActive:bool
+│   │   │   │   // Applies to 29 tables, NOT audit_logs (Rule 11)
+│   │   │   ├── AuditLogBase.cs
+│   │   │   │   // Id, Timestamp, CreatedAt only for audit_logs
+│   │   │   ├── Result.cs
+│   │   │   │   // IsSuccess, Error, Value<T>, IsFailure, ErrorType
+│   │   │   └── Error.cs
+│   │   │       // Code, Message, Type
+│   │   │
+│   │   ├── DTOs/ (Canonical - No invention - Matches DB exactly)
+│   │   │   ├── Auth/
+│   │   │   │   ├── LoginRequestDto.cs
+│   │   │   │   │   // Email:string [Required, Email], Password:string [Required]
+│   │   │   │   ├── RegisterRequestDto.cs
+│   │   │   │   │   // Username:string, Email:string, Password:string, FullName:string, PhoneNumber?:string, RoleId:Guid, BranchId?:Guid
+│   │   │   │   └── AuthResponseDto.cs
+│   │   │   │       // Token:string, RefreshToken:string, ExpiresAt:DateTime, User:UserResponseDto, Permissions:string[]
+│   │   │   ├── Users/
+│   │   │   │   ├── CreateUserRequestDto.cs
+│   │   │   │   │   // Username:string, Email:string, Password:string, FullName:string, PhoneNumber?:string, BranchId?:Guid, RoleId:Guid
+│   │   │   │   │   // DB: users.username, email, password_hash (hashed), full_name, phone_number, branch_id, role_id
+│   │   │   │   ├── UpdateUserRequestDto.cs
+│   │   │   │   │   // FullName?:string, PhoneNumber?:string, BranchId?:Guid, RoleId?:Guid, IsActive?:bool
+│   │   │   │   └── UserResponseDto.cs
+│   │   │   │       // Id:Guid, Username:string, Email:string, FullName:string, PhoneNumber?:string, BranchId?:Guid, BranchName?:string, RoleId:Guid, RoleName:string, IsActive:bool, CreatedAt:DateTime
+│   │   │   ├── Students/
+│   │   │   │   ├── CreateStudentRequestDto.cs
+│   │   │   │   │   // UserId:Guid, MajorId:Guid, StudentNumber:string, EnrollmentDate?:DateOnly
+│   │   │   │   │   // DB: students.user_id, major_id, student_number
+│   │   │   │   ├── UpdateStudentRequestDto.cs
+│   │   │   │   │   // MajorId?:Guid, Status?:StudentStatus, Gpa?:decimal 0-4, CompletedCredits?:int
+│   │   │   │   └── StudentResponseDto.cs
+│   │   │   │       // Id, UserId, StudentNumber, FullName, Email, MajorId, MajorName, Gpa, CompletedCredits, Status:StudentStatus, IsActive, CreatedAt
+│   │   │   ├── Courses/
+│   │   │   │   ├── CreateCourseRequestDto.cs
+│   │   │   │   │   // CourseCode:string, CourseName:string, Description?:string, CreditHours:int 1-6, LectureHours?:int, LabHours?:int, MaxStudents?:int
+│   │   │   │   │   // DB: courses.course_code, course_name, description, credit_hours, max_students
+│   │   │   │   ├── UpdateCourseRequestDto.cs
+│   │   │   │   │   // CourseName?, Description?, CreditHours? 1-6, MaxStudents?, IsActive?
+│   │   │   │   └── CourseResponseDto.cs
+│   │   │   │       // Id, CourseCode, CourseName, Description, CreditHours, LectureHours, LabHours, MaxStudents, IsActive, CreatedAt, Prerequisites:CourseDto[]
+│   │   │   ├── Enrollments/ *** CORE - CANONICAL ***
+│   │   │   │   ├── EnrollRequestDto.cs
+│   │   │   │   │   // StudentId:Guid [Required], SectionId:Guid [Required], SemesterId:Guid [Required]
+│   │   │   │   │   // DB: course_enrollments.student_id, section_id, semester_id - EXACT MATCH Rule 8,9,24
+│   │   │   │   │   // TypeScript: studentId, sectionId, semesterId - JSON: studentId, sectionId, semesterId
+│   │   │   │   ├── DropCourseRequestDto.cs
+│   │   │   │   │   // EnrollmentId:Guid, Reason?:string
+│   │   │   │   └── EnrollmentResponseDto.cs
+│   │   │   │       // Id, StudentId, StudentNumber, StudentName, SectionId, SectionNumber, CourseId, CourseCode, CourseName, SemesterId, SemesterName, Status:EnrollmentStatus, EnrollmentDate, CreatedAt
+│   │   │   ├── Grades/
+│   │   │   │   ├── SubmitGradeRequestDto.cs
+│   │   │   │   │   // EnrollmentId:Guid, MidtermScore?:decimal 0-100, FinalScore?:decimal 0-100
+│   │   │   │   │   // DB: grades.enrollment_id, midterm_score, final_score
+│   │   │   │   ├── UpdateGradeRequestDto.cs
+│   │   │   │   │   // MidtermScore?:decimal, FinalScore?:decimal, TotalScore?:decimal, LetterGrade?:GradeLetter
+│   │   │   │   └── GradeResponseDto.cs
+│   │   │   │       // Id, EnrollmentId, StudentId, CourseCode, CourseName, MidtermScore, FinalScore, TotalScore, LetterGrade:GradeLetter, GradePoints, IsLocked, CreatedAt
+│   │   │   ├── Finance/
+│   │   │   │   ├── CreateFinancialRecordRequestDto.cs
+│   │   │   │   │   // StudentId:Guid, SemesterId:Guid, TotalDue:decimal >0
+│   │   │   │   ├── PaymentRequestDto.cs
+│   │   │   │   │   // FinancialId:Guid [Required], Amount:decimal >0, PaymentMethod:PaymentMethod, TransactionId?:string
+│   │   │   │   │   // DB: payments.financial_id, amount, payment_method - EXACT MATCH
+│   │   │   │   └── FinancialRecordResponseDto.cs
+│   │   │   │       // Id, StudentId, SemesterId, TotalDue, TotalPaid, Balance, Status:FinancialRecordStatus, IsActive, CreatedAt, Payments:PaymentDto[]
+│   │   │   ├── Roles/
+│   │   │   │   ├── CreateRoleRequestDto.cs // RoleName:string, Description?:string
+│   │   │   │   ├── UpdateRoleRequestDto.cs // RoleName?, Description?, IsActive?
+│   │   │   │   └── RoleResponseDto.cs // Id, RoleName, Description, IsActive, CreatedAt, Permissions:string[]
+│   │   │   ├── Permissions/
+│   │   │   │   ├── CreatePermissionRequestDto.cs // PermissionName, Description, Module
+│   │   │   │   └── PermissionResponseDto.cs // Id, PermissionName, Description, Module, IsActive
+│   │   │   └── AdministrativeDepartments/
+│   │   │       ├── CreateAdministrativeDepartmentRequestDto.cs
+│   │   │       │   // BranchId:Guid [Required], DepartmentName:string [Required], DepartmentCode:string [Required], Description?:string
+│   │   │       │   // DB: administrative_departments.branch_id, department_name, department_code, description
+│   │   │       ├── UpdateAdministrativeDepartmentRequestDto.cs
+│   │   │       │   // DepartmentName?, DepartmentCode?, Description?, IsActive?
+│   │   │       └── AdministrativeDepartmentResponseDto.cs
+│   │   │           // Id, BranchId, BranchName, DepartmentName, DepartmentCode, Description, IsActive, CreatedAt
+│   │   │
+│   │   ├── Enums/ (Split per Rule 12 - No merging)
+│   │   │   ├── EnrollmentStatus.cs
+│   │   │   │   // ENROLLED, DROPPED, WITHDRAWN, COMPLETED, FAILED - Canonical 5 values (Conflict 3 resolved)
+│   │   │   ├── StudentStatus.cs (NEW - Split from AcademicStatus)
+│   │   │   │   // ST_ACTIVE, ST_INACTIVE, ST_GRADUATED, ST_SUSPENDED - Maps to students.status
+│   │   │   ├── AcademicStanding.cs (NEW - Split)
+│   │   │   │   // GOOD_STANDING, PROBATION, SUSPENDED, HONORS, DEANS_LIST - Maps to academic_records.academic_status
+│   │   │   ├── GradeLetter.cs
+│   │   │   │   // A, B, C, D, F, I, W - Maps to grades.letter_grade CHECK
+│   │   │   ├── PaymentMethod.cs
+│   │   │   │   // CASH, CARD, BANK_TRANSFER, ONLINE - Maps to payments.payment_method CHECK - Exact match
+│   │   │   ├── FinancialRecordStatus.cs (NEW)
+│   │   │   │   // ACTIVE, CLOSED, OVERDUE - Maps to financial_records.status
+│   │   │   ├── PaymentStatus.cs
+│   │   │   │   // PENDING, COMPLETED, FAILED, REFUNDED
+│   │   │   ├── RefundStatus.cs (NEW)
+│   │   │   │   // PENDING, APPROVED, REJECTED - Maps to financial_refunds.status
+│   │   │   ├── GraduationStatus.cs
+│   │   │   │   // PENDING, APPROVED, REJECTED, CLEARANCE_PENDING - Maps to graduation_requests.status
+│   │   │   ├── ClearanceStatus.cs (NEW)
+│   │   │   │   // PENDING, APPROVED, REJECTED - Maps to graduation_requests.clearance_status
+│   │   │   ├── NotificationType.cs
+│   │   │   │   // INFO, WARNING, SUCCESS, ERROR - Maps to system_notifications.notification_type
+│   │   │   ├── UserRole.cs (Constants)
+│   │   │   │   // ADMIN, STUDENT, FACULTY, FINANCE_OFFICER - Maps to roles.role_name
+│   │   │   ├── AcademicRank.cs (NEW)
+│   │   │   │   // LECTURER, ASSISTANT_PROFESSOR, ASSOCIATE_PROFESSOR, PROFESSOR - Maps to instructors.academic_rank
+│   │   │   └── RoomType.cs (NEW)
+│   │   │       // LECTURE, LAB, SEMINAR - Maps to classrooms.room_type
+│   │   │
+│   │   ├── Constants/
+│   │   │   ├── StudentConstants.cs // MaxCreditHours=21, MinGPA=2.0, MaxEnrollmentsPerSemester=7
+│   │   │   ├── CourseConstants.cs // MaxCapacity=60, MinCredit=1, MaxCredit=6
+│   │   │   ├── GradeConstants.cs // MinScore=0, MaxScore=100, PassingGrade=60, MinGPA=0, MaxGPA=4
+│   │   │   ├── PaymentConstants.cs // MinAmount=0.01, MaxDiscount=100
+│   │   │   └── DatabaseConstants.cs // Table names as const: Branches="branches", Users="users", etc.
+│   │   │
+│   │   ├── Exceptions/
+│   │   │   ├── NotFoundException.cs
+│   │   │   ├── ValidationException.cs
+│   │   │   ├── ConflictException.cs (409 for duplicate enrollment)
+│   │   │   ├── UnauthorizedException.cs
+│   │   │   └── ForbiddenException.cs
+│   │   │
+│   │   └── Interfaces/
+│   │       ├── Repositories/
+│   │       │   ├── IGenericRepository.cs
+│   │       │   │   // GetByIdAsync(Guid Id):Task<T?>, GetAllAsync():Task<IEnumerable<T>>, FindAsync(Expression<Func<T,bool>>):Task<IEnumerable<T>>, AddAsync(T entity):Task<T>, AddRangeAsync(IEnumerable<T>):Task<IEnumerable<T>>, UpdateAsync(T entity):Task<T>, DeleteAsync(Guid Id):Task, CountAsync(Expression?), AnyAsync(Expression?), SaveChangesAsync():Task<int> - Canonical per Conflict 10
+│   │       │   ├── IUserRepository.cs // GetByEmailAsync(string email):Task<User?>, GetByUsernameAsync, EmailExistsAsync, GetWithRoleAsync, GetByBranchAsync
+│   │       │   ├── IStudentRepository.cs // GetByNumberAsync, GetByUserIdAsync, GetWithMajorAsync, UpdateGPAAsync(Guid studentId, decimal gpa), GetActiveStudentsAsync
+│   │       │   ├── ICourseRepository.cs // GetByCodeAsync, GetWithPrerequisitesAsync, GetSectionsBySemesterAsync, GetAvailableForStudentAsync
+│   │       │   ├── IEnrollmentRepository.cs // GetByStudentAndSemesterAsync(StudentId,SemesterId), ExistsAsync(StudentId,SectionId,SemesterId):Task<bool>, GetWithGradesAsync, GetEnrollmentsWithLockAsync (for concurrency - FOR UPDATE)
+│   │       │   ├── IGradeRepository.cs // GetByEnrollmentIdAsync, GetByStudentIdAsync, CalculateGPAAsync(StudentId), GetLockedGradesAsync
+│   │       │   ├── IFinancialRepository.cs // GetByStudentAndSemesterAsync, GetWithPaymentsAsync, GetOverdueAsync
+│   │       │   ├── ISemesterRepository.cs // GetCurrentAsync, GetByYearAsync, IsValidForEnrollmentAsync
+│   │       │   └── IUnitOfWork.cs // BeginTransactionAsync(IsolationLevel), CommitAsync(), RollbackAsync(), SaveChangesAsync(), CourseEnrollments, Students, etc. as properties, ExecuteInTransactionAsync(Func)
+│   │       └── Services/
+│   │           ├── IAuthService.cs // LoginAsync(email,password):Task<Result<AuthResponseDto>>, RegisterAsync(RegisterRequestDto), RefreshTokenAsync(string refreshToken), ValidateTokenAsync(string token), ChangePasswordAsync(Guid userId, string oldPass, string newPass), LogoutAsync(Guid userId)
+│   │           ├── IUserService.cs // GetUserByIdAsync(Guid Id), CreateUserAsync(CreateUserRequestDto), UpdateUserAsync(Guid Id, UpdateUserRequestDto), DeleteUserAsync(Guid Id), AssignRoleAsync(Guid userId, Guid roleId), GetByBranchAsync
+│   │           ├── IStudentService.cs // GetStudentByIdAsync, CreateStudentAsync(CreateStudentRequestDto), GetStudentGPAAsync(Guid studentId), UpdateGPAAsync
+│   │           ├── ICourseService.cs // GetCourseByIdAsync, CreateCourseAsync(CreateCourseRequestDto), GetAvailableCoursesAsync(Guid studentId), GetWithPrerequisitesAsync
+│   │           ├── IEnrollmentService.cs // EnrollAsync(EnrollRequestDto):Task<Result<EnrollmentResponseDto>> transactional + concurrency safe, DropAsync(Guid enrollmentId, string? reason), GetStudentEnrollmentsAsync(Guid studentId, Guid semesterId), CheckPrerequisitesAsync(StudentId, CourseId)
+│   │           ├── IGradeService.cs // SubmitGradeAsync(SubmitGradeRequestDto):Task<Result<GradeResponseDto>>, UpdateGradeAsync, LockGradeAsync(Guid gradeId), GetStudentGradesAsync(Guid studentId), CalculateGPAAsync
+│   │           ├── IFinancialService.cs // GetBalanceAsync(Guid studentId, Guid? semesterId), RecordPaymentAsync(PaymentRequestDto):Task<Result<PaymentResponseDto>> transactional, ApplyScholarshipAsync, RefundAsync, GetFinancialRecordAsync
+│   │           └── IAdministrativeDepartmentService.cs // CRUD for administrative_departments
+│   │
+│   ├── University.Core/ (Domain Entities - 30 entities - 29 BaseEntity, 1 special)
+│   │   ├── Common/
+│   │   │   ├── BaseEntity.cs
+│   │   │   │   // public Guid Id {get;set;} public DateTime CreatedAt {get;set;} = DateTime.UtcNow; public DateTime? UpdatedAt {get;set;} public bool IsActive {get;set;}=true;
+│   │   │   │   // For 29 tables
+│   │   │   ├── AuditableLog.cs (Special - No IsActive/UpdatedAt per Rule 11)
+│   │   │   │   // public Guid Id {get;set;} public DateTime Timestamp {get;set;} public DateTime CreatedAt {get;set;}
+│   │   │   └── IAuditable.cs
+│   │   ├── Entities/
+│   │   │   ├── Branch.cs : BaseEntity // BranchName, BranchCode, Nav: Faculties, AdministrativeDepartments, Classrooms, Users
+│   │   │   ├── AdministrativeDepartment.cs : BaseEntity // BranchId, DepartmentName, DepartmentCode, Description - DB: administrative_departments
+│   │   │   ├── Role.cs : BaseEntity // RoleName, Description
+│   │   │   ├── Permission.cs : BaseEntity // PermissionName, Description, Module - Conflict 5 resolved
+│   │   │   ├── RolePermission.cs : BaseEntity // RoleId, PermissionId
+│   │   │   ├── Faculty.cs : BaseEntity // BranchId, FacultyName, FacultyCode, DeanName
+│   │   │   ├── AcademicDepartment.cs : BaseEntity // FacultyId, DepartmentName, DepartmentCode, HeadName
+│   │   │   ├── Major.cs : BaseEntity // DepartmentId, MajorName, MajorCode, TotalCreditHours
+│   │   │   ├── Course.cs : BaseEntity // CourseCode, CourseName, Description, CreditHours, LectureHours, LabHours, MaxStudents
+│   │   │   ├── CoursePrerequisite.cs : BaseEntity // CourseId, PrerequisiteCourseId, IsMandatory
+│   │   │   ├── Semester.cs : BaseEntity // SemesterName, SemesterCode, AcademicYear, StartDate, EndDate, IsCurrent
+│   │   │   ├── Classroom.cs : BaseEntity // BranchId, RoomNumber, BuildingName, Capacity, RoomType:RoomType
+│   │   │   ├── User.cs : BaseEntity // Username, Email, PasswordHash, FullName, PhoneNumber, BranchId, RoleId, LastLogin
+│   │   │   ├── Instructor.cs : BaseEntity // UserId, FacultyId, InstructorNumber, AcademicRank:AcademicRank, Specialization
+│   │   │   ├── Student.cs : BaseEntity // UserId, MajorId, StudentNumber, Gpa 0-4, CompletedCredits, EnrollmentDate, Status:StudentStatus
+│   │   │   ├── CourseSection.cs : BaseEntity // CourseId, SemesterId, ClassroomId, InstructorId, SectionNumber, MaxCapacity, CurrentEnrollment, ScheduleDays, StartTime, EndTime - FOR UPDATE for concurrency
+│   │   │   ├── StudyPlan.cs : BaseEntity // MajorId, CourseId, SemesterNumber, IsMandatory
+│   │   │   ├── CourseEnrollment.cs : BaseEntity // StudentId, SectionId, SemesterId, EnrollmentDate, Status:EnrollmentStatus - Core DTO mapping
+│   │   │   ├── AttendanceRecord.cs : BaseEntity // EnrollmentId, AttendanceDate, IsPresent, Notes - FIXED with IsActive
+│   │   │   ├── Grade.cs : BaseEntity // EnrollmentId, MidtermScore 0-100, FinalScore 0-100, TotalScore, LetterGrade:GradeLetter, GradePoints, IsLocked
+│   │   │   ├── AcademicRecord.cs : BaseEntity // StudentId, SemesterId, SemesterGpa, CumulativeGpa, TotalCredits, TotalPoints, AcademicStatus:AcademicStanding - Split per Conflict 4
+│   │   │   ├── TuitionFee.cs : BaseEntity // MajorId, AcademicYear, CreditHourPrice
+│   │   │   ├── FinancialRecord.cs : BaseEntity // StudentId, SemesterId, TotalDue, TotalPaid, Balance, Status:FinancialRecordStatus
+│   │   │   ├── Payment.cs : BaseEntity // FinancialId, Amount >0, PaymentMethod:PaymentMethod, PaymentDate, TransactionId, Notes
+│   │   │   ├── Scholarship.cs : BaseEntity // ScholarshipName, ScholarshipCode, DiscountPercentage 0-100, MaxAmount
+│   │   │   ├── FinancialRefund.cs : BaseEntity // FinancialId, Amount >0, Reason, Status:RefundStatus
+│   │   │   ├── Guardian.cs : BaseEntity // StudentId, FullName, Phone, Email, Relationship, IsPrimary
+│   │   │   ├── AuditLog.cs : AuditableLog (Special) // UserId, Action, Entity, EntityId, TableName, OldValues:JSONB, NewValues:JSONB, IpAddress, UserAgent, Timestamp, CreatedAt - NO UpdatedAt, NO IsActive per Rule 11
+│   │   │   ├── SystemNotification.cs : BaseEntity // UserId, Title, Message, NotificationType:NotificationType, IsRead
+│   │   │   └── GraduationRequest.cs : BaseEntity // StudentId, RequestDate, ExpectedGraduationDate, Status:GraduationStatus, ClearanceStatus:ClearanceStatus, GpaAtRequest, TotalCreditsAtRequest, Notes
+│   │   ├── Rules/
+│   │   │   ├── IBusinessRule.cs // Task<bool> IsSatisfiedAsync(), string Error
+│   │   │   ├── StudentCannotEnrollInSameCourseTwiceRule.cs // Checks course_enrollments UNIQUE
+│   │   │   ├── StudentMustHaveCompletedPrerequisitesRule.cs // Checks course_prerequisites + grades letter != F
+│   │   │   ├── StudentCannotExceedCreditHoursRule.cs // Sum credit_hours <= 21 (StudentConstants)
+│   │   │   ├── StudentMustBeActiveRule.cs // student.IsActive && student.Status==ST_ACTIVE
+│   │   │   ├── SectionMustHaveCapacityRule.cs // current_enrollment < max_capacity with FOR UPDATE
+│   │   │   └── SemesterMustBeValidRule.cs // semester.IsActive && IsCurrent or within dates
+│   │   └── Specifications/
+│   │       ├── BaseSpecification.cs
+│   │       ├── StudentSpecifications.cs // ActiveStudents, ByMajor, WithGPA, ByBranch
+│   │       └── CourseSpecifications.cs // ActiveCourses, ByDepartment, AvailableForStudent
+│   │
+│   ├── University.Application/
+│   │   ├── Abstractions/
+│   │   │   ├── ICommand.cs, ICommandHandler.cs, IQuery.cs, IQueryHandler.cs
+│   │   │   └── IHasPermission.cs
+│   │   ├── Behaviors/
+│   │   │   ├── LoggingBehavior.cs
+│   │   │   ├── ValidationBehavior.cs (FluentValidation)
+│   │   │   ├── TransactionBehavior.cs (Uses IUnitOfWork)
+│   │   │   └── AuthorizationBehavior.cs (Permission-based)
+│   │   ├── Mapping/
+│   │   │   ├── AuthMappingProfile.cs (AutoMapper: User <-> UserResponseDto)
+│   │   │   ├── EnrollmentMappingProfile.cs (CourseEnrollment <-> EnrollmentResponseDto, EnrollRequestDto -> CourseEnrollment)
+│   │   │   └── ... (One per aggregate)
+│   │   ├── Validators/
+│   │   │   ├── Auth/LoginCommandValidator.cs // Email required, Password required
+│   │   │   ├── Enrollments/EnrollRequestDtoValidator.cs // StudentId not empty, SectionId not empty, SemesterId not empty
+│   │   │   ├── Grades/SubmitGradeRequestDtoValidator.cs // Midterm 0-100, Final 0-100
+│   │   │   └── Finance/PaymentRequestDtoValidator.cs // Amount >0, FinancialId not empty
+│   │   ├── Auth/
+│   │   │   ├── Commands/LoginCommand.cs // Email, Password -> AuthResponseDto
+│   │   │   ├── Commands/RegisterCommand.cs // RegisterRequestDto -> AuthResponseDto
+│   │   │   └── Queries/GetCurrentUserQuery.cs
+│   │   ├── Enrollments/
+│   │   │   ├── Commands/EnrollStudentCommand.cs // EnrollRequestDto (StudentId, SectionId, SemesterId) -> EnrollmentResponseDto - Transactional
+│   │   │   ├── Commands/DropCourseCommand.cs // EnrollmentId, Reason
+│   │   │   └── Queries/GetStudentEnrollmentsQuery.cs // StudentId, SemesterId? -> IEnumerable<EnrollmentResponseDto>
+│   │   ├── Grades/
+│   │   │   ├── Commands/SubmitGradeCommand.cs // SubmitGradeRequestDto
+│   │   │   └── Queries/GetStudentGradesQuery.cs
+│   │   └── Finance/
+│   │       ├── Commands/RecordPaymentCommand.cs // PaymentRequestDto transactional
+│   │       └── Queries/GetFinancialRecordQuery.cs
+│   │
+│   ├── University.Infrastructure/
+│   │   ├── Data/
+│   │   │   ├── UniversityDbContext.cs
+│   │   │   │   // DbSet for 30 tables, ApplyConfigurationsFromAssembly, No auto-pluralization, Use Npgsql, UseSnakeCaseNaming? No - explicit HasColumnName per Rule 10
+│   │   │   ├── Configurations/ (30 configs - EXPLICIT MAPPING per Rule 10)
+│   │   │   │   ├── BranchConfiguration.cs // ToTable("branches"), HasKey Id->"id", Property Id HasColumnName("id"), BranchName->"branch_name", BranchCode->"branch_code", IsActive->"is_active", CreatedAt->"created_at", UpdatedAt->"updated_at"
+│   │   │   │   ├── AdministrativeDepartmentConfiguration.cs // ToTable("administrative_departments"), BranchId->"branch_id", DepartmentName->"department_name", DepartmentCode->"department_code", Description->"description"
+│   │   │   │   ├── UserConfiguration.cs // ToTable("users"), Id->"id", Username->"username", Email->"email", PasswordHash->"password_hash", FullName->"full_name", PhoneNumber->"phone_number", BranchId->"branch_id", RoleId->"role_id", LastLogin->"last_login", IsActive->"is_active"
+│   │   │   │   ├── CourseEnrollmentConfiguration.cs // ToTable("course_enrollments"), Id->"id", StudentId->"student_id", SectionId->"section_id", SemesterId->"semester_id", Status->"status" HasConversion string, EnrollmentDate->"enrollment_date", IsActive->"is_active", CreatedAt->"created_at", UpdatedAt->"updated_at", HasIndex Unique student_id, section_id, semester_id, HasOne Student WithMany Enrollments OnDelete Cascade
+│   │   │   │   ├── AuditLogConfiguration.cs // SPECIAL: ToTable("audit_logs"), Id->"id", UserId->"user_id", Action->"action", Entity->"entity", TableName->"table_name", OldValues->"old_values" HasColumnType("jsonb"), NewValues->"new_values" jsonb, Timestamp->"timestamp", CreatedAt->"created_at" - NO UpdatedAt, NO IsActive
+│   │   │   │   └── ... 26 more - Each with explicit HasColumnName for every property
+│   │   │   └── Seed/DbSeeder.cs // Seed Roles, Permissions with Module, Branches, Admin User (password hashed with BCrypt)
+│   │   ├── Repositories/
+│   │   │   ├── GenericRepository.cs : IGenericRepository<T> where T:BaseEntity // Implements all methods, SaveChangesAsync
+│   │   │   ├── UserRepository.cs : GenericRepository<User>, IUserRepository
+│   │   │   ├── StudentRepository.cs
+│   │   │   ├── CourseRepository.cs
+│   │   │   ├── EnrollmentRepository.cs // Implements ExistsAsync with AnyAsync, GetEnrollmentsWithLockAsync using FromSqlRaw("SELECT * FROM course_enrollments WHERE ... FOR UPDATE") or EF Core concurrency token on CourseSection.CurrentEnrollment with RowVersion
+│   │   │   ├── GradeRepository.cs
+│   │   │   ├── FinancialRepository.cs
+│   │   │   └── UnitOfWork.cs : IUnitOfWork // Holds DbContext, DbSet properties, BeginTransactionAsync, CommitAsync, RollbackAsync, ExecuteInTransactionAsync, SaveChangesAsync
+│   │   ├── Services/
+│   │   │   ├── AuthService.cs // BCrypt, JWT generation, RefreshToken, ValidateToken
+│   │   │   ├── EnrollmentService.cs // EnrollAsync: 1) Validate student active, 2) Validate semester valid, 3) Validate section active & capacity with FOR UPDATE, 4) Check prerequisites, 5) Check credit limit, 6) Check duplicate via ExistsAsync, 7) Increment current_enrollment atomically, 8) Insert enrollment in same transaction - Never partial
+│   │   │   ├── GradeService.cs // SubmitGrade transactional, LockGrade
+│   │   │   └── FinancialService.cs // RecordPayment transactional
+│   │   ├── Security/
+│   │   │   ├── PasswordHasher.cs // BCrypt
+│   │   │   ├── JwtTokenGenerator.cs // Access + Refresh, claims: userId, role, permissions
+│   │   │   └── PermissionChecker.cs
+│   │   └── Extensions/ServiceExtensions.cs // AddInfrastructure: AddDbContext Npgsql connection string, Add Repositories, Add UnitOfWork, Add Auth
+│   │
+│   └── University.API/
+│       ├── Controllers/
+│       │   ├── AuthController.cs // POST /api/auth/login, POST /api/auth/register, POST /api/auth/refresh - Uses AuthResponseDto
+│       │   ├── StudentsController.cs // GET /api/students/{id}, POST /api/students, PUT /api/students/{id}
+│       │   ├── CoursesController.cs // GET /api/courses, GET /api/courses/{id}, POST /api/courses
+│       │   ├── EnrollmentsController.cs // POST /api/enrollments {StudentId, SectionId, SemesterId} -> 201 Created, GET /api/enrollments/student/{studentId}, GET /api/enrollments/student/{studentId}/semester/{semesterId}, DELETE /api/enrollments/{id}
+│       │   ├── GradesController.cs // POST /api/grades, GET /api/grades/student/{studentId}, PUT /api/grades/{id}/lock
+│       │   ├── FinanceController.cs // GET /api/finance/student/{studentId}, POST /api/finance/payments {FinancialId, Amount, PaymentMethod}
+│       │   └── AdministrativeDepartmentsController.cs // CRUD
+│       ├── Middleware/GlobalExceptionHandler.cs // Returns Result<T> error format, logs unexpected
+│       ├── Program.cs // Builder: Add Controllers, Add Swagger, Add Auth JWT Bearer, Add Infrastructure, Add Application, Add CORS for Web/Mobile/WPF, Use ExceptionHandler, Use Authentication, Authorization, MapControllers
+│       ├── appsettings.json // ConnectionStrings: DefaultConnection Npgsql, Jwt: Secret, Issuer, Audience, Expiry
+│       └── appsettings.Development.json
+│
+├── ums-web/ (Next.js + Node.js + TypeScript - Client Agnostic per Rule 4-6)
+│   ├── package.json // next, react, typescript, axios, zod
+│   ├── next.config.js
+│   ├── tsconfig.json
+│   ├── src/
+│   │   ├── app/ (Next.js App Router)
+│   │   │   ├── (auth)/login/page.tsx
+│   │   │   ├── (dashboard)/students/[id]/page.tsx
+│   │   │   └── (dashboard)/enrollments/page.tsx
+│   │   ├── domain/
+│   │   │   ├── dto/
+│   │   │   │   ├── enroll-request.dto.ts // studentId:string, sectionId:string, semesterId:string - Exact match to C# EnrollRequestDto camelCase per Rule 9,24
+│   │   │   │   ├── payment-request.dto.ts // financialId:string, amount:number, paymentMethod:'CASH'|'CARD'|'BANK_TRANSFER'|'ONLINE'
+│   │   │   │   ├── create-administrative-department-request.dto.ts // branchId, departmentName, departmentCode, description?
+│   │   │   │   └── ... (Generated from University.Shared via NSwag or manual but identical semantic)
+│   │   │   └── enums/
+│   │   │       ├── enrollment-status.enum.ts // 'ENROLLED'|'DROPPED'|'WITHDRAWN'|'COMPLETED'|'FAILED'
+│   │   │       ├── student-status.enum.ts // 'ST_ACTIVE'...
+│   │   │       └── payment-method.enum.ts // 'CASH'|'CARD'|'BANK_TRANSFER'|'ONLINE'
+│   │   ├── infrastructure/
+│   │   │   ├── api/
+│   │   │   │   ├── api-client.ts // Axios instance, baseURL from env, interceptors for JWT
+│   │   │   │   ├── auth.api.ts // login(email,password):Promise<AuthResponseDto>
+│   │   │   │   ├── enrollments.api.ts // enroll(dto:EnrollRequestDto):Promise<EnrollmentResponseDto> POST /api/enrollments
+│   │   │   │   └── finance.api.ts // recordPayment(dto:PaymentRequestDto)
+│   │   │   └── storage/token-storage.ts
+│   │   └── presentation/
+│   │       ├── components/ui/
+│   │       └── hooks/useAuth.ts
+│   └── .env.example // NEXT_PUBLIC_API_URL=http://localhost:5000/api
+│
+├── ums-mobile/ (API Client Architecture - Same API contract per Rule 6)
+│   ├── package.json // expo, react-native, axios
+│   ├── src/
+│   │   ├── domain/dto/ // Same DTOs as web - enroll-request.dto.ts { studentId, sectionId, semesterId }
+│   │   ├── infrastructure/api/
+│   │   │   ├── api-client.ts // Same base as web, token from SecureStore
+│   │   │   └── enrollments.api.ts // Same endpoint POST /api/enrollments
+│   │   └── presentation/
+│   └── README.md // Mobile uses same JWT, same permissions, no direct DB
+│
+├── ums-wpf/ (WPF Desktop - Same API contract per Rule 7)
+│   ├── UMS.Desktop.WPF.csproj // net8.0-windows, UseWPF true, References University.Shared only (NOT Infrastructure, NOT DbContext per Rule 7)
+│   ├── App.xaml
+│   ├── ViewModels/
+│   │   ├── LoginViewModel.cs // Uses AuthResponseDto, LoginRequestDto from University.Shared
+│   │   ├── EnrollmentViewModel.cs // Uses EnrollRequestDto { StudentId, SectionId, SemesterId } - Same DTO as Web/Mobile
+│   │   │   // Command: EnrollAsync(EnrollRequestDto dto) => await _apiClient.PostAsync("/api/enrollments", dto)
+│   │   └── FinanceViewModel.cs // Uses PaymentRequestDto { FinancialId, Amount, PaymentMethod }
+│   ├── Views/
+│   │   ├── LoginView.xaml
+│   │   └── EnrollmentView.xaml
+│   ├── Services/
+│   │   ├── ApiClient.cs // HttpClient, baseUrl, JWT handler
+│   │   ├── AuthService.cs // LoginAsync
+│   │   └── TokenStorage.cs
+│   └── README.md // WPF never references University.Infrastructure or UniversityDbContext - Only Shared and API
+│
+├── tests/
+│   ├── University.Core.Tests/
+│   │   ├── Entities/BranchTests.cs
+│   │   └── Rules/EnrollmentRulesTests.cs // StudentCannotEnrollTwice, CreditHours, Prerequisites
+│   ├── University.Infrastructure.Tests/
+│   │   ├── Data/UniversityDbContextTests.cs // Verify ToTable mapping, HasColumnName mapping for all 30 tables
+│   │   └── Repositories/EnrollmentRepositoryTests.cs // ExistsAsync, GetWithLock
+│   ├── University.API.Tests/
+│   │   ├── Controllers/EnrollmentsControllerTests.cs // POST /api/enrollments returns 201, duplicate returns 409
+│   │   └── AuthTests.cs // Login, Register, Refresh
+│   └── University.Application.Tests/
+│       ├── Enrollments/EnrollStudentCommandTests.cs // Transactional, capacity, prerequisites, credit limit
+│       └── Finance/RecordPaymentTests.cs // Transactional, amount >0
+│
+├── docs/
+│   ├── API_CONTRACT.md // All endpoints, request/response DTOs
+│   └── ENROLLMENT_FLOW.md // Transactional flow with concurrency protection
+│
+└── docker-compose.yaml
+    // services: postgres:15, redis, ums-api (depends_on postgres), pgadmin (optional)
+    // volumes: postgres_data, init-scripts:/docker-entrypoint-initdb.d/ -> 01-DB_FINAL.sql
+
+
+================================================================================
+SQL SCHEMA - 30 TABLES - FINAL CORRECTED - PostgreSQL 15
+PostgreSQL 15, UUID, TIMESTAMPTZ, JSONB, CHECK constraints
+BaseEntity: 29 tables have id, created_at, updated_at, is_active
+audit_logs SPECIAL: only id, timestamp, created_at per Rule 11
+================================================================================
+
+-- UMS 30 Tables - FINAL CORRECTED - Per ARCHITECTURE_CONFLICTS.md
+-- PostgreSQL 15 - BaseEntity applies to 29 tables, audit_logs separate (Rule 11)
+-- Canonical per Rule 2
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+DROP TABLE IF EXISTS audit_logs, system_notifications, graduation_requests, guardians, financial_refunds, payments, scholarships, financial_records, tuition_fees, academic_records, grades, attendance_records, course_enrollments, study_plans, course_prerequisites, course_sections, students, instructors, users, classrooms, semesters, courses, majors, academic_departments, faculties, administrative_departments, role_permissions, permissions, roles, branches CASCADE;
+
+-- 1. branches
+CREATE TABLE branches (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    branch_name VARCHAR(100) NOT NULL,
+    branch_code VARCHAR(20) UNIQUE NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. administrative_departments
+CREATE TABLE administrative_departments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE RESTRICT,
+    department_name VARCHAR(100) NOT NULL,
+    department_code VARCHAR(20) UNIQUE NOT NULL,
+    description VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. roles
+CREATE TABLE roles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role_name VARCHAR(50) UNIQUE NOT NULL,
+    description VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. permissions (Module included - Conflict 5 resolved)
+CREATE TABLE permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    permission_name VARCHAR(100) UNIQUE NOT NULL,
+    description VARCHAR(255),
+    module VARCHAR(50) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. role_permissions
+CREATE TABLE role_permissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(role_id, permission_id)
+);
+
+-- 6. faculties
+CREATE TABLE faculties (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE RESTRICT,
+    faculty_name VARCHAR(100) NOT NULL,
+    faculty_code VARCHAR(20) UNIQUE,
+    dean_name VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. academic_departments
+CREATE TABLE academic_departments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    faculty_id UUID NOT NULL REFERENCES faculties(id) ON DELETE RESTRICT,
+    department_name VARCHAR(100) NOT NULL,
+    department_code VARCHAR(20) UNIQUE,
+    head_name VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. majors
+CREATE TABLE majors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    department_id UUID NOT NULL REFERENCES academic_departments(id) ON DELETE RESTRICT,
+    major_name VARCHAR(100) NOT NULL,
+    major_code VARCHAR(20) UNIQUE,
+    total_credit_hours INT DEFAULT 130,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. courses
+CREATE TABLE courses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_code VARCHAR(20) UNIQUE NOT NULL,
+    course_name VARCHAR(150) NOT NULL,
+    description TEXT,
+    credit_hours INT CHECK (credit_hours BETWEEN 1 AND 6) NOT NULL,
+    lecture_hours INT DEFAULT 3,
+    lab_hours INT DEFAULT 0,
+    max_students INT DEFAULT 40,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. course_prerequisites
+CREATE TABLE course_prerequisites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    prerequisite_course_id UUID NOT NULL REFERENCES courses(id) ON DELETE RESTRICT,
+    is_mandatory BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(course_id, prerequisite_course_id)
+);
+
+-- 11. semesters
+CREATE TABLE semesters (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    semester_name VARCHAR(50) NOT NULL,
+    semester_code VARCHAR(20) UNIQUE NOT NULL,
+    academic_year VARCHAR(9) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    is_current BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 12. classrooms
+CREATE TABLE classrooms (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE RESTRICT,
+    room_number VARCHAR(20) NOT NULL,
+    building_name VARCHAR(50),
+    capacity INT NOT NULL DEFAULT 30,
+    room_type VARCHAR(20) DEFAULT 'LECTURE' CHECK (room_type IN ('LECTURE','LAB','SEMINAR')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(branch_id, room_number)
+);
+
+-- 13. users
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    phone_number VARCHAR(20),
+    branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
+    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+    last_login TIMESTAMPTZ,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 14. instructors
+CREATE TABLE instructors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    faculty_id UUID REFERENCES faculties(id) ON DELETE SET NULL,
+    instructor_number VARCHAR(20) UNIQUE NOT NULL,
+    academic_rank VARCHAR(30) DEFAULT 'LECTURER' CHECK (academic_rank IN ('LECTURER','ASSISTANT_PROFESSOR','ASSOCIATE_PROFESSOR','PROFESSOR')),
+    specialization VARCHAR(100),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 15. students (StudentStatus split per Conflict 4)
+CREATE TABLE students (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    major_id UUID REFERENCES majors(id) ON DELETE SET NULL,
+    student_number VARCHAR(20) UNIQUE NOT NULL,
+    gpa DECIMAL(4,2) DEFAULT 0.00 CHECK (gpa BETWEEN 0 AND 4),
+    completed_credits INT DEFAULT 0 CHECK (completed_credits >= 0),
+    enrollment_date DATE DEFAULT CURRENT_DATE,
+    status VARCHAR(20) DEFAULT 'ST_ACTIVE' CHECK (status IN ('ST_ACTIVE','ST_INACTIVE','ST_GRADUATED','ST_SUSPENDED')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 16. course_sections
+CREATE TABLE course_sections (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE RESTRICT,
+    semester_id UUID NOT NULL REFERENCES semesters(id) ON DELETE RESTRICT,
+    classroom_id UUID REFERENCES classrooms(id) ON DELETE SET NULL,
+    instructor_id UUID REFERENCES instructors(id) ON DELETE SET NULL,
+    section_number VARCHAR(10) NOT NULL,
+    max_capacity INT NOT NULL DEFAULT 30 CHECK (max_capacity > 0),
+    current_enrollment INT DEFAULT 0 CHECK (current_enrollment >= 0 AND current_enrollment <= max_capacity),
+    schedule_days VARCHAR(20),
+    start_time TIME,
+    end_time TIME,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(course_id, semester_id, section_number)
+);
+
+-- 17. study_plans
+CREATE TABLE study_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    major_id UUID NOT NULL REFERENCES majors(id) ON DELETE CASCADE,
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    semester_number INT NOT NULL CHECK (semester_number BETWEEN 1 AND 12),
+    is_mandatory BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(major_id, course_id)
+);
+
+-- 18. course_enrollments (Core - EnrollRequestDto)
+CREATE TABLE course_enrollments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    section_id UUID NOT NULL REFERENCES course_sections(id) ON DELETE RESTRICT,
+    semester_id UUID NOT NULL REFERENCES semesters(id) ON DELETE RESTRICT,
+    enrollment_date TIMESTAMPTZ DEFAULT NOW(),
+    status VARCHAR(20) DEFAULT 'ENROLLED' CHECK (status IN ('ENROLLED','DROPPED','WITHDRAWN','COMPLETED','FAILED')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, section_id, semester_id)
+);
+
+-- 19. attendance_records (FIXED - now has is_active)
+CREATE TABLE attendance_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    enrollment_id UUID NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE,
+    attendance_date DATE NOT NULL,
+    is_present BOOLEAN NOT NULL,
+    notes VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(enrollment_id, attendance_date)
+);
+
+-- 20. grades
+CREATE TABLE grades (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    enrollment_id UUID NOT NULL REFERENCES course_enrollments(id) ON DELETE CASCADE,
+    midterm_score DECIMAL(5,2) CHECK (midterm_score BETWEEN 0 AND 100),
+    final_score DECIMAL(5,2) CHECK (final_score BETWEEN 0 AND 100),
+    total_score DECIMAL(5,2) CHECK (total_score BETWEEN 0 AND 100),
+    letter_grade VARCHAR(5) CHECK (letter_grade IN ('A','B','C','D','F','I','W')),
+    grade_points DECIMAL(3,2) CHECK (grade_points BETWEEN 0 AND 4),
+    is_locked BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(enrollment_id)
+);
+
+-- 21. academic_records (AcademicStanding split)
+CREATE TABLE academic_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    semester_id UUID NOT NULL REFERENCES semesters(id) ON DELETE RESTRICT,
+    semester_gpa DECIMAL(4,2) CHECK (semester_gpa BETWEEN 0 AND 4),
+    cumulative_gpa DECIMAL(4,2) CHECK (cumulative_gpa BETWEEN 0 AND 4),
+    total_credits INT DEFAULT 0 CHECK (total_credits >= 0),
+    total_points DECIMAL(6,2) DEFAULT 0,
+    academic_status VARCHAR(20) DEFAULT 'GOOD_STANDING' CHECK (academic_status IN ('GOOD_STANDING','PROBATION','SUSPENDED','HONORS','DEANS_LIST')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, semester_id)
+);
+
+-- 22. tuition_fees
+CREATE TABLE tuition_fees (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    major_id UUID NOT NULL REFERENCES majors(id) ON DELETE CASCADE,
+    academic_year VARCHAR(9) NOT NULL,
+    credit_hour_price DECIMAL(10,2) NOT NULL CHECK (credit_hour_price > 0),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(major_id, academic_year)
+);
+
+-- 23. financial_records
+CREATE TABLE financial_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    semester_id UUID REFERENCES semesters(id) ON DELETE SET NULL,
+    total_due DECIMAL(10,2) DEFAULT 0 CHECK (total_due >= 0),
+    total_paid DECIMAL(10,2) DEFAULT 0 CHECK (total_paid >= 0),
+    balance DECIMAL(10,2) DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE','CLOSED','OVERDUE')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, semester_id)
+);
+
+-- 24. payments
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    financial_id UUID NOT NULL REFERENCES financial_records(id) ON DELETE CASCADE,
+    amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
+    payment_method VARCHAR(20) CHECK (payment_method IN ('CASH','CARD','BANK_TRANSFER','ONLINE')) NOT NULL,
+    payment_date TIMESTAMPTZ DEFAULT NOW(),
+    transaction_id VARCHAR(100) UNIQUE,
+    notes VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 25. scholarships
+CREATE TABLE scholarships (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    scholarship_name VARCHAR(100) NOT NULL,
+    scholarship_code VARCHAR(20) UNIQUE NOT NULL,
+    discount_percentage DECIMAL(5,2) CHECK (discount_percentage BETWEEN 0 AND 100) NOT NULL,
+    max_amount DECIMAL(10,2) CHECK (max_amount > 0),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 26. financial_refunds
+CREATE TABLE financial_refunds (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    financial_id UUID NOT NULL REFERENCES financial_records(id) ON DELETE CASCADE,
+    amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
+    reason VARCHAR(255) NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 27. guardians
+CREATE TABLE guardians (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    relationship VARCHAR(50) NOT NULL,
+    is_primary BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 28. audit_logs (SPECIAL - No BaseEntity, per Rule 11 and Conflict 1)
+CREATE TABLE audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    action VARCHAR(50) NOT NULL,
+    entity VARCHAR(100),
+    entity_id VARCHAR(50),
+    table_name VARCHAR(50),
+    old_values JSONB,
+    new_values JSONB,
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(255),
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 29. system_notifications
+CREATE TABLE system_notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(150) NOT NULL,
+    message TEXT NOT NULL,
+    notification_type VARCHAR(30) DEFAULT 'INFO' CHECK (notification_type IN ('INFO','WARNING','SUCCESS','ERROR')),
+    is_read BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 30. graduation_requests
+CREATE TABLE graduation_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+    request_date TIMESTAMPTZ DEFAULT NOW(),
+    expected_graduation_date DATE,
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING','APPROVED','REJECTED','CLEARANCE_PENDING')),
+    clearance_status VARCHAR(20) DEFAULT 'PENDING' CHECK (clearance_status IN ('PENDING','APPROVED','REJECTED')),
+    gpa_at_request DECIMAL(4,2) CHECK (gpa_at_request BETWEEN 0 AND 4),
+    total_credits_at_request INT CHECK (total_credits_at_request >= 0),
+    notes TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_role ON users(role_id);
+CREATE INDEX idx_students_number ON students(student_number);
+CREATE INDEX idx_students_user ON students(user_id);
+CREATE INDEX idx_course_enrollments_student ON course_enrollments(student_id);
+CREATE INDEX idx_course_enrollments_section ON course_enrollments(section_id);
+CREATE INDEX idx_course_enrollments_semester ON course_enrollments(semester_id);
+CREATE INDEX idx_grades_enrollment ON grades(enrollment_id);
+CREATE INDEX idx_audit_logs_user ON audit_logs(user_id);
+CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp);
+CREATE INDEX idx_course_sections_course_sem ON course_sections(course_id, semester_id);
+CREATE INDEX idx_admin_dept_branch ON administrative_departments(branch_id);
+CREATE INDEX idx_payments_financial ON payments(financial_id);
+
+-- Seed Roles
+INSERT INTO roles (id, role_name, description) VALUES 
+ (gen_random_uuid(), 'ADMIN', 'System Administrator'),
+ (gen_random_uuid(), 'STUDENT', 'Student User'),
+ (gen_random_uuid(), 'FACULTY', 'Faculty Member'),
+ (gen_random_uuid(), 'FINANCE_OFFICER', 'Finance Officer')
+ON CONFLICT (role_name) DO NOTHING;
+
+-- Seed Permissions with Module (Conflict 5 resolved)
+INSERT INTO permissions (permission_name, description, module) VALUES
+ ('AUTH_LOGIN', 'Can login', 'AUTH'),
+ ('USER_READ', 'Can read users', 'USER'),
+ ('USER_WRITE', 'Can write users', 'USER'),
+ ('STUDENT_READ', 'Can read student data', 'STUDENT'),
+ ('STUDENT_WRITE', 'Can write student data', 'STUDENT'),
+ ('ENROLLMENT_READ', 'Can read enrollments', 'ENROLLMENT'),
+ ('ENROLLMENT_WRITE', 'Can enroll courses', 'ENROLLMENT'),
+ ('GRADE_READ', 'Can read grades', 'GRADE'),
+ ('GRADE_WRITE', 'Can write grades', 'GRADE'),
+ ('FINANCE_READ', 'Can read finance', 'FINANCE'),
+ ('FINANCE_WRITE', 'Can write finance', 'FINANCE')
+ON CONFLICT (permission_name) DO NOTHING;
+
+
+================================================================================
+ENUM MAPPING RULE - CRITICAL - DO NOT PERSIST NUMERIC TO VARCHAR
+================================================================================
+Rule: Enum numeric values (1,2,3...) are internal C# values only.
+DB column VARCHAR stores canonical string: 'ENROLLED' not 1.
+EF Core MUST use:
+  builder.Property(e => e.Status)
+    .HasColumnName("status")
+    .HasConversion(
+        v => v.ToString(), // C# ENROLLED -> DB 'ENROLLED'
+        v => (EnrollmentStatus)Enum.Parse(typeof(EnrollmentStatus), v)
+    );
+
+All 12 enums:
+- EnrollmentStatus: ENROLLED, DROPPED, WITHDRAWN, COMPLETED, FAILED -> course_enrollments.status CHECK
+- StudentStatus: ST_ACTIVE, ST_INACTIVE, ST_GRADUATED, ST_SUSPENDED -> students.status CHECK
+- AcademicStanding: GOOD_STANDING, PROBATION, SUSPENDED, HONORS, DEANS_LIST -> academic_records.academic_status CHECK
+- PaymentMethod: CASH, CARD, BANK_TRANSFER, ONLINE -> payments.payment_method CHECK (exact 4)
+- GradeLetter: A, B, C, D, F, I, W -> grades.letter_grade CHECK
+- FinancialRecordStatus: ACTIVE, CLOSED, OVERDUE -> financial_records.status
+- RefundStatus: PENDING, APPROVED, REJECTED -> financial_refunds.status
+- GraduationStatus: PENDING, APPROVED, REJECTED, CLEARANCE_PENDING -> graduation_requests.status
+- ClearanceStatus: PENDING, APPROVED, REJECTED -> graduation_requests.clearance_status
+- NotificationType: INFO, WARNING, SUCCESS, ERROR -> system_notifications.notification_type
+- AcademicRank: LECTURER, ASSISTANT_PROFESSOR, ASSOCIATE_PROFESSOR, PROFESSOR -> instructors.academic_rank
+- RoomType: LECTURE, LAB, SEMINAR -> classrooms.room_type
+
+================================================================================
+DTO-MAPPING - CORE CONTRACTS - REFERENCE
+================================================================================
+EnrollRequestDto: StudentId, SectionId, SemesterId -> student_id, section_id, semester_id -> studentId
+PaymentRequestDto: FinancialId, Amount, PaymentMethod -> financial_id, amount, payment_method
+CreateAdministrativeDepartmentRequestDto: BranchId, DepartmentName, DepartmentCode, Description -> branch_id, department_name, department_code, description
+
+Naming: DB snake_case student_id -> C# PascalCase StudentId -> TS camelCase studentId -> JSON studentId - Same semantic
