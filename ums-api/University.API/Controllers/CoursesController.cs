@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using University.API.Attributes;
 using University.Core.Interfaces.Services;
 using University.Shared.Common;
 using University.Shared.DTOs.Courses;
@@ -8,7 +8,7 @@ namespace University.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[HasPermission("COURSE_READ")]
 public class CoursesController : ControllerBase
 {
     private readonly ICourseService _courseService;
@@ -40,6 +40,7 @@ public class CoursesController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("COURSE_WRITE")]
     public async Task<IActionResult> Create([FromBody] CreateCourseRequestDto dto)
     {
         var result = await _courseService.CreateCourseAsync(dto);
@@ -47,6 +48,7 @@ public class CoursesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [HasPermission("COURSE_WRITE")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCourseRequestDto dto)
     {
         var result = await _courseService.UpdateCourseAsync(id, dto);
@@ -54,6 +56,7 @@ public class CoursesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [SuperAdminOnly]
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await _courseService.DeleteCourseAsync(id);

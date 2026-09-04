@@ -9,12 +9,6 @@ public static class UserMapper
     {
         Id = user.Id,
         Username = user.Username,
-        Email = user.Email,
-        FullName = user.FullName,
-        PhoneNumber = user.PhoneNumber,
-        BranchId = user.BranchId,
-        BranchName = user.Branch?.BranchName,
-        RoleId = user.RoleId,
         RoleName = user.Role?.RoleName ?? string.Empty,
         IsActive = user.IsActive,
         CreatedAt = user.CreatedAt

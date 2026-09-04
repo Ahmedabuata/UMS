@@ -15,6 +15,7 @@ public interface IUnitOfWork
     IGenericRepository<University.Core.Entities.Major> Majors { get; }
     IGenericRepository<University.Core.Entities.Course> Courses { get; }
     IGenericRepository<University.Core.Entities.CoursePrerequisite> CoursePrerequisites { get; }
+    IGenericRepository<University.Core.Entities.Building> Buildings { get; }
     IGenericRepository<University.Core.Entities.Semester> Semesters { get; }
     IGenericRepository<University.Core.Entities.Classroom> Classrooms { get; }
     IGenericRepository<University.Core.Entities.User> Users { get; }

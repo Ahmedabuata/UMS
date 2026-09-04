@@ -96,9 +96,26 @@ public class AdministrativeDepartmentService : IAdministrativeDepartmentService
     {
         var depts = await _context.AdministrativeDepartments
             .Include(d => d.Branch)
-            .Where(d => d.IsActive)
+            .OrderByDescending(d => d.IsActive)
+            .ThenBy(d => d.DepartmentName)
             .ToListAsync();
         return Result<IEnumerable<AdministrativeDepartmentResponseDto>>.Success(
             depts.Select(AdministrativeDepartmentMapper.ToResponse).ToList());
+    }
+
+    public async Task<Result<bool>> RestoreAsync(Guid id)
+    {
+        var dept = await _context.AdministrativeDepartments.FindAsync(id);
+        if (dept == null)
+        {
+            return Result<bool>.NotFound("DEPT_NOT_FOUND", "Department not found.");
+        }
+
+        dept.IsActive = true;
+        dept.UpdatedAt = DateTime.UtcNow;
+
+        await _unitOfWork.AdministrativeDepartments.UpdateAsync(dept);
+        await _unitOfWork.SaveChangesAsync();
+        return Result<bool>.Success(true);
     }
 }

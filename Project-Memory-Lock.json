@@ -1,0 +1,26 @@
+{
+  "protectedFile": "ums-api/University.Infrastructure/Data/Seed/DbSeeder.cs",
+  "status": "FINAL_LOCKED",
+  "lastVerified": "2026-09-04",
+  "verifiedState": {
+    "ADMIN": 38,
+    "SUPER_ADMIN": 38,
+    "SECURITY_ADMIN": 15,
+    "HR_MANAGER": 14,
+    "HR_EMPLOYEE": 5,
+    "FACULTY": 5,
+    "STUDENT": 4,
+    "FINANCE_OFFICER": 4
+  },
+  "securityDecisions": {
+    "HR_MANAGER": "14 permissions - NO HR_SALARY_WRITE (can READ, cannot WRITE)",
+    "HR_EMPLOYEE": "5 permissions - read-only, NO salary",
+    "ADMIN_SUPER": "38 - all including sensitive"
+  },
+  "rulesForAI": [
+    "Do NOT modify DbSeeder.cs without human approval",
+    "Do NOT change HR_MANAGER from 14 to 15",
+    "Do NOT change HR_EMPLOYEE from 5",
+    "Do NOT set SECURITY_ADMIN/FACULTY/STUDENT/FINANCE back to 0"
+  ]
+}

@@ -10,7 +10,7 @@ public static class EnrollmentMapper
         Id = enrollment.Id,
         StudentId = enrollment.StudentId,
         StudentNumber = enrollment.Student?.StudentNumber,
-        StudentName = enrollment.Student?.User?.FullName,
+        StudentName = string.Empty,
         SectionId = enrollment.SectionId,
         SectionNumber = enrollment.Section?.SectionNumber,
         CourseId = enrollment.Section?.CourseId ?? Guid.Empty,

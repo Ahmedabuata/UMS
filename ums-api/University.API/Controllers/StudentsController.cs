@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using University.API.Attributes;
 using University.Core.Interfaces.Services;
 using University.Shared.Common;
 using University.Shared.DTOs.Students;
@@ -8,7 +8,7 @@ namespace University.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[HasPermission("STUDENT_READ")]
 public class StudentsController : ControllerBase
 {
     private readonly IStudentService _studentService;
@@ -32,14 +32,23 @@ public class StudentsController : ControllerBase
         return result.IsFailure ? ErrorResult(result) : Ok(result.Value);
     }
 
+    [HttpGet("number-preview")]
+    public async Task<IActionResult> PreviewNumber([FromQuery] Guid facultyId, [FromQuery] Guid academicDepartmentId)
+    {
+        var result = await _studentService.PreviewStudentNumberAsync(facultyId, academicDepartmentId);
+        return result.IsFailure ? ErrorResult(result) : Ok(result.Value);
+    }
+
     [HttpPost]
+    [HasPermission("STUDENT_WRITE")]
     public async Task<IActionResult> Create([FromBody] CreateStudentRequestDto dto)
     {
         var result = await _studentService.CreateStudentAsync(dto);
-        return result.IsFailure ? ErrorResult(result) : CreatedAtAction(nameof(GetById), new { id = 0 }, result.Value);
+        return result.IsFailure ? ErrorResult(result) : Ok(result.Value);
     }
 
     [HttpPut("{id:guid}")]
+    [HasPermission("STUDENT_WRITE")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateStudentRequestDto dto)
     {
         var result = await _studentService.UpdateStudentAsync(id, dto);

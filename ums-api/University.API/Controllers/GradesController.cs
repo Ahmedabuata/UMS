@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using University.API.Attributes;
 using University.Core.Interfaces.Services;
 using University.Shared.Common;
 using University.Shared.DTOs.Grades;
@@ -8,7 +8,7 @@ namespace University.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[HasPermission("GRADE_READ")]
 public class GradesController : ControllerBase
 {
     private readonly IGradeService _gradeService;
@@ -19,6 +19,7 @@ public class GradesController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("GRADE_WRITE")]
     public async Task<IActionResult> Submit([FromBody] SubmitGradeRequestDto dto)
     {
         var result = await _gradeService.SubmitGradeAsync(dto);
@@ -26,6 +27,7 @@ public class GradesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [HasPermission("GRADE_WRITE")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateGradeRequestDto dto)
     {
         var result = await _gradeService.UpdateGradeAsync(id, dto);
@@ -33,6 +35,7 @@ public class GradesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/lock")]
+    [HasPermission("GRADE_WRITE")]
     public async Task<IActionResult> Lock(Guid id)
     {
         var result = await _gradeService.LockGradeAsync(id);

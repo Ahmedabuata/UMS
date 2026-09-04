@@ -10,21 +10,23 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
     {
         builder.ToTable("users");
         builder.ConfigureBase();
+        // Id is the shared primary key: users.id == employees.id (or students.id).
+        builder.Property(e => e.Id).ValueGeneratedNever();
         builder.Property(e => e.Username).HasColumnName("username").HasMaxLength(50).IsRequired();
-        builder.Property(e => e.Email).HasColumnName("email").HasMaxLength(100).IsRequired();
         builder.Property(e => e.PasswordHash).HasColumnName("password_hash").HasMaxLength(255).IsRequired();
-        builder.Property(e => e.FullName).HasColumnName("full_name").HasMaxLength(100).IsRequired();
-        builder.Property(e => e.PhoneNumber).HasColumnName("phone_number").HasMaxLength(20);
-        builder.Property(e => e.BranchId).HasColumnName("branch_id");
         builder.Property(e => e.RoleId).HasColumnName("role_id");
-        builder.Property(e => e.LastLogin).HasColumnName("last_login");
+        builder.Property(e => e.MustChangePassword).HasColumnName("must_change_password").HasDefaultValue(true);
         builder.HasIndex(e => e.Username).IsUnique();
-        builder.HasIndex(e => e.Email).IsUnique();
         builder.HasIndex(e => e.RoleId);
-        builder.HasOne(e => e.Branch)
-            .WithMany(b => b.Users)
-            .HasForeignKey(e => e.BranchId)
-            .OnDelete(DeleteBehavior.SetNull);
+
+        // Shared-Primary-Key 1:1: users.id == employees.id.
+        // Employee is principal; deleting an Employee deletes this User (Cascade), but deleting
+        // this User does NOT delete the Employee.
+        builder.HasOne(u => u.Employee)
+            .WithOne(e => e.User)
+            .HasForeignKey<User>(u => u.Id)
+            .OnDelete(DeleteBehavior.Cascade);
+
         builder.HasOne(e => e.Role)
             .WithMany(r => r.Users)
             .HasForeignKey(e => e.RoleId)

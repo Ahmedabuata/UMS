@@ -20,7 +20,7 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto dto)
     {
-        var result = await _authService.LoginAsync(dto.Email, dto.Password);
+        var result = await _authService.LoginAsync(dto.Username, dto.Password);
         if (result.IsFailure)
         {
             return ToErrorResult(result);

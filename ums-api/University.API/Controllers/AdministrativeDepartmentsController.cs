@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using University.API.Attributes;
 using University.Core.Interfaces.Services;
 using University.Shared.Common;
 using University.Shared.DTOs.AdministrativeDepartments;
@@ -8,7 +8,7 @@ namespace University.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[HasPermission("ADMIN_DEPT_READ")]
 public class AdministrativeDepartmentsController : ControllerBase
 {
     private readonly IAdministrativeDepartmentService _service;
@@ -33,13 +33,15 @@ public class AdministrativeDepartmentsController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("ADMIN_DEPT_WRITE")]
     public async Task<IActionResult> Create([FromBody] CreateAdministrativeDepartmentRequestDto dto)
     {
         var result = await _service.CreateAsync(dto);
-        return result.IsFailure ? ErrorResult(result) : CreatedAtAction(nameof(GetById), new { id = 0 }, result.Value);
+        return result.IsFailure ? ErrorResult(result) : Ok(result.Value);
     }
 
     [HttpPut("{id:guid}")]
+    [HasPermission("ADMIN_DEPT_WRITE")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateAdministrativeDepartmentRequestDto dto)
     {
         var result = await _service.UpdateAsync(id, dto);
@@ -47,9 +49,18 @@ public class AdministrativeDepartmentsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [SuperAdminOnly]
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await _service.DeleteAsync(id);
+        return result.IsFailure ? ErrorResult(result) : Ok(result.Value);
+    }
+
+    [HttpPut("{id:guid}/restore")]
+    [HasPermission("ADMIN_DEPT_WRITE")]
+    public async Task<IActionResult> Restore(Guid id)
+    {
+        var result = await _service.RestoreAsync(id);
         return result.IsFailure ? ErrorResult(result) : Ok(result.Value);
     }
 

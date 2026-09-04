@@ -8,13 +8,9 @@ public class LoginCommandValidator
     {
         var errors = new Dictionary<string, string[]>();
 
-        if (string.IsNullOrWhiteSpace(dto.Email))
+        if (string.IsNullOrWhiteSpace(dto.Username))
         {
-            errors["Email"] = new[] { "Email is required." };
-        }
-        else if (!dto.Email.Contains('@'))
-        {
-            errors["Email"] = new[] { "Email is not a valid email address." };
+            errors["Username"] = new[] { "Username is required." };
         }
 
         if (string.IsNullOrWhiteSpace(dto.Password))

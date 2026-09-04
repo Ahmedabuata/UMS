@@ -31,7 +31,7 @@ public class EnrollmentRepository : GenericRepository<CourseEnrollment>, IEnroll
 
     public async Task<CourseEnrollment?> GetWithDetailsAsync(Guid id) =>
         await _dbSet
-            .Include(e => e.Student).ThenInclude(s => s!.User)
+            .Include(e => e.Student).ThenInclude(s => s!)
             .Include(e => e.Section).ThenInclude(s => s.Course)
             .Include(e => e.Semester)
             .FirstOrDefaultAsync(e => e.Id == id);
@@ -43,3 +43,4 @@ public class EnrollmentRepository : GenericRepository<CourseEnrollment>, IEnroll
             .AsNoTracking()
             .FirstOrDefaultAsync();
 }
+

@@ -31,6 +31,7 @@ public class UnitOfWork : IUnitOfWork
         CoursePrerequisites = new GenericRepository<CoursePrerequisite>(context);
         Semesters = new GenericRepository<Semester>(context);
         Classrooms = new GenericRepository<Classroom>(context);
+        Buildings = new GenericRepository<Building>(context);
         Users = new UserRepository(context);
         Instructors = new GenericRepository<Instructor>(context);
         Students = new StudentRepository(context);
@@ -71,6 +72,7 @@ public class UnitOfWork : IUnitOfWork
     public IGenericRepository<CoursePrerequisite> CoursePrerequisites { get; }
     public IGenericRepository<Semester> Semesters { get; }
     public IGenericRepository<Classroom> Classrooms { get; }
+    public IGenericRepository<Building> Buildings { get; }
     public IGenericRepository<User> Users { get; }
     public IGenericRepository<Instructor> Instructors { get; }
     public IGenericRepository<Student> Students { get; }

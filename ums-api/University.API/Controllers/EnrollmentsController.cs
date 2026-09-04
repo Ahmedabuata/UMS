@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using University.API.Attributes;
 using University.Core.Interfaces.Services;
 using University.Shared.Common;
 using University.Shared.DTOs.Enrollments;
@@ -8,7 +8,7 @@ namespace University.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[HasPermission("ENROLLMENT_READ")]
 public class EnrollmentsController : ControllerBase
 {
     private readonly IEnrollmentService _enrollmentService;
@@ -19,6 +19,7 @@ public class EnrollmentsController : ControllerBase
     }
 
     [HttpPost]
+    [HasPermission("ENROLLMENT_WRITE")]
     public async Task<IActionResult> Enroll([FromBody] EnrollRequestDto dto)
     {
         var result = await _enrollmentService.EnrollAsync(dto);
@@ -26,6 +27,7 @@ public class EnrollmentsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/drop")]
+    [HasPermission("ENROLLMENT_WRITE")]
     public async Task<IActionResult> Drop(Guid id, [FromBody] DropCourseRequestDto? dto)
     {
         var reason = dto?.Reason;

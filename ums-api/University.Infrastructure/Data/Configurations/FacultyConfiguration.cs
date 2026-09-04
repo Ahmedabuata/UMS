@@ -14,6 +14,8 @@ public class FacultyConfiguration : IEntityTypeConfiguration<Faculty>
         builder.Property(e => e.FacultyName).HasColumnName("faculty_name").HasMaxLength(100).IsRequired();
         builder.Property(e => e.FacultyCode).HasColumnName("faculty_code").HasMaxLength(20);
         builder.Property(e => e.DeanName).HasColumnName("dean_name").HasMaxLength(100);
+        builder.Property(e => e.Location).HasColumnName("location").HasMaxLength(200);
+        builder.Property(e => e.Description).HasColumnName("description").HasMaxLength(500);
         builder.HasIndex(e => e.FacultyCode).IsUnique();
         builder.HasOne(e => e.Branch)
             .WithMany(b => b.Faculties)

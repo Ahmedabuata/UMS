@@ -1,3 +1,5 @@
+using University.Shared.Enums;
+
 namespace University.Shared.DTOs.Semesters;
 
 public class CreateSemesterRequestDto
@@ -7,5 +9,7 @@ public class CreateSemesterRequestDto
     public string AcademicYear { get; set; } = string.Empty;
     public DateOnly StartDate { get; set; }
     public DateOnly EndDate { get; set; }
-    public bool IsCurrent { get; set; }
+    public DateOnly? RegistrationStart { get; set; }
+    public DateOnly? RegistrationEnd { get; set; }
+    public SemesterStatus? Status { get; set; }
 }

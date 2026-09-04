@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using University.Application.Mapping;
+using University.Core.Entities;
 using University.Core.Interfaces.Repositories;
 using University.Core.Interfaces.Services;
 using University.Infrastructure.Data;
+using University.Infrastructure.Security;
 using University.Shared.Common;
 using University.Shared.DTOs.Students;
+using University.Shared.Enums;
 
 namespace University.Infrastructure.Services;
 
@@ -12,11 +15,25 @@ public class StudentService : IStudentService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ApplicationDbContext _context;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly IPasswordPolicyService _passwordPolicy;
+    private readonly INotificationService _notification;
+    private readonly IIdentifierGeneratorService _identifierGenerator;
 
-    public StudentService(IUnitOfWork unitOfWork, ApplicationDbContext context)
+    public StudentService(
+        IUnitOfWork unitOfWork,
+        ApplicationDbContext context,
+        IPasswordHasher passwordHasher,
+        IPasswordPolicyService passwordPolicy,
+        INotificationService notification,
+        IIdentifierGeneratorService identifierGenerator)
     {
         _unitOfWork = unitOfWork;
         _context = context;
+        _passwordHasher = passwordHasher;
+        _passwordPolicy = passwordPolicy;
+        _notification = notification;
+        _identifierGenerator = identifierGenerator;
     }
 
     public async Task<Result<StudentResponseDto>> GetStudentByIdAsync(Guid id)
@@ -32,24 +49,52 @@ public class StudentService : IStudentService
 
     public async Task<Result<StudentResponseDto>> CreateStudentAsync(CreateStudentRequestDto dto)
     {
-        if (await _context.Students.AnyAsync(s => s.StudentNumber == dto.StudentNumber))
+        // Generate the identifier server-side (FACULTY-DEPT-YYYYMM-XXXXX) when not provided.
+        string studentNumber;
+        if (string.IsNullOrWhiteSpace(dto.StudentNumber))
+        {
+            if (!dto.FacultyId.HasValue || !dto.AcademicDepartmentId.HasValue)
+            {
+                return Result<StudentResponseDto>.Validation("FACULTY_DEPT_REQUIRED", "Faculty and academic department are required to generate a student number.");
+            }
+            try
+            {
+                studentNumber = await _identifierGenerator.GenerateStudentNumberAsync(dto.FacultyId.Value, dto.AcademicDepartmentId.Value);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Result<StudentResponseDto>.Validation("CODE_MISSING", ex.Message);
+            }
+        }
+        else
+        {
+            studentNumber = dto.StudentNumber.Trim();
+        }
+
+        if (await _context.Students.AnyAsync(s => s.StudentNumber == studentNumber))
         {
             return Result<StudentResponseDto>.Conflict("STUDENT_NUMBER_EXISTS", "Student number already exists.");
         }
 
-        var userExists = await _context.Users.AnyAsync(u => u.Id == dto.UserId);
-        if (!userExists)
+        // Student admission/academic record is created with its OWN UUID (NOT shared with the user).
+        // Optionally link to an EXISTING (employee-backed) user via Student.UserId; otherwise no user.
+        // No user account is auto-created here (all users must be employee-backed -> users.id == employees.id).
+        Guid studentId = Guid.NewGuid();
+        Guid? linkedUserId = null;
+        if (dto.UserId.HasValue && dto.UserId.Value != Guid.Empty &&
+            await _context.Users.AnyAsync(u => u.Id == dto.UserId.Value))
         {
-            return Result<StudentResponseDto>.Validation("USER_NOT_FOUND", "User not found.");
+            linkedUserId = dto.UserId.Value;
         }
 
-        var student = new University.Core.Entities.Student
+        var student = new Student
         {
-            UserId = dto.UserId,
-            MajorId = dto.MajorId,
-            StudentNumber = dto.StudentNumber,
+            Id = studentId,
+            UserId = linkedUserId,
+            MajorId = dto.MajorId.HasValue && dto.MajorId.Value != Guid.Empty ? dto.MajorId : null,
+            StudentNumber = studentNumber,
             EnrollmentDate = dto.EnrollmentDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
-            Status = University.Shared.Enums.StudentStatus.ST_ACTIVE,
+            Status = StudentStatus.ST_ACTIVE,
             Gpa = 0,
             IsActive = true
         };
@@ -110,10 +155,22 @@ public class StudentService : IStudentService
     public async Task<Result<IEnumerable<StudentResponseDto>>> GetAllAsync()
     {
         var students = await _context.Students
-            .Include(s => s.User)
             .Include(s => s.Major)
             .Where(s => s.IsActive)
             .ToListAsync();
         return Result<IEnumerable<StudentResponseDto>>.Success(students.Select(StudentMapper.ToResponse).ToList());
+    }
+
+    public async Task<Result<string>> PreviewStudentNumberAsync(Guid facultyId, Guid academicDepartmentId)
+    {
+        try
+        {
+            var number = await _identifierGenerator.GenerateStudentNumberAsync(facultyId, academicDepartmentId);
+            return Result<string>.Success(number);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Result<string>.Validation("CODE_MISSING", ex.Message);
+        }
     }
 }

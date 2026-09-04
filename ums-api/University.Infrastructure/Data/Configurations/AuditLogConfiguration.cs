@@ -20,10 +20,13 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
         builder.Property(e => e.NewValues).HasColumnName("new_values").HasColumnType("jsonb");
         builder.Property(e => e.IpAddress).HasColumnName("ip_address").HasMaxLength(45);
         builder.Property(e => e.UserAgent).HasColumnName("user_agent").HasMaxLength(255);
+        builder.Property(e => e.BranchCode).HasColumnName("branch_code").HasMaxLength(50);
+        builder.Property(e => e.CreatedBy).HasColumnName("created_by");
         builder.Property(e => e.Timestamp).HasColumnName("timestamp");
         builder.Property(e => e.CreatedAt).HasColumnName("created_at");
         builder.HasIndex(e => e.UserId).HasDatabaseName("idx_audit_logs_user");
         builder.HasIndex(e => e.Timestamp).HasDatabaseName("idx_audit_logs_timestamp");
+        builder.HasIndex(e => e.BranchCode).HasDatabaseName("idx_audit_logs_branch_code");
         builder.HasOne(e => e.User)
             .WithMany()
             .HasForeignKey(e => e.UserId)

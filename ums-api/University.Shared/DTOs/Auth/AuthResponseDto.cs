@@ -9,4 +9,5 @@ public class AuthResponseDto
     public DateTime ExpiresAt { get; set; }
     public UserResponseDto? User { get; set; }
     public List<string> Permissions { get; set; } = new();
+    public bool MustChangePassword { get; set; }
 }

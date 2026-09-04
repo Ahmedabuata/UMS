@@ -1,0 +1,12 @@
+-- UMS database initialization placeholder.
+--
+-- The application schema is owned and created by Entity Framework Core migrations
+-- (applied automatically at startup via DbContext.Database.MigrateAsync()).
+-- Seed/reference data (roles, modules, permissions, branches, super admin, etc.)
+-- is created by the application's DbSeeder at startup.
+--
+-- Previously this directory mounted DB-FINAL-CORRECT.sql, which pre-created an
+-- old/incompatible schema (users with full_name/email columns, no "employees" or
+-- "modules" tables). That conflicted with the EF migrations and caused startup
+-- to fail with "relation ... does not exist" after `docker compose down -v`.
+-- EF now owns the schema, so this init hook intentionally does nothing.

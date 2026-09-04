@@ -5,7 +5,7 @@ namespace University.Shared.DTOs.Students;
 public class StudentResponseDto
 {
     public Guid Id { get; set; }
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
     public string StudentNumber { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
@@ -16,4 +16,5 @@ public class StudentResponseDto
     public StudentStatus Status { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? TempPassword { get; set; }
 }

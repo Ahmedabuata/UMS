@@ -14,11 +14,12 @@ public class StudentRepository : GenericRepository<Student>, IStudentRepository
     public async Task<Student?> GetByNumberAsync(string studentNumber) =>
         await _dbSet.FirstOrDefaultAsync(s => s.StudentNumber == studentNumber);
 
+    // A student links to a user via Student.UserId (NOT a shared primary key).
     public async Task<Student?> GetByUserIdAsync(Guid userId) =>
         await _dbSet.FirstOrDefaultAsync(s => s.UserId == userId);
 
     public async Task<Student?> GetWithMajorAsync(Guid id) =>
-        await _dbSet.Include(s => s.User).Include(s => s.Major).FirstOrDefaultAsync(s => s.Id == id);
+        await _dbSet.Include(s => s.Major).FirstOrDefaultAsync(s => s.Id == id);
 
     public async Task UpdateGPAAsync(Guid studentId, decimal gpa)
     {
@@ -31,5 +32,5 @@ public class StudentRepository : GenericRepository<Student>, IStudentRepository
     }
 
     public async Task<IEnumerable<Student>> GetActiveStudentsAsync() =>
-        await _dbSet.Include(s => s.User).Where(s => s.IsActive).ToListAsync();
+        await _dbSet.Where(s => s.IsActive).ToListAsync();
 }

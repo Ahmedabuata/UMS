@@ -1,12 +1,17 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using University.API.Middleware;
+using University.Application.Configuration;
 using University.Infrastructure.Data;
 using University.Infrastructure.Data.Seed;
 using University.Infrastructure.Extensions;
+using University.Infrastructure.Security;
+using University.Shared.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,7 +43,20 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("HasPermission", policy => policy.Requirements.Add(new PermissionRequirement()));
+});
+
+// Dynamic policy provider: resolves "HasPermission:<PERMISSION>" and "SuperAdminOnly"
+// policy names on demand, enforcing fine-grained permission checks across controllers.
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionAuthorizationPolicyProvider>();
+
+builder.Services.AddOptions<SecuritySettings>()
+    .Bind(builder.Configuration.GetSection("SecuritySettings"))
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<IValidateOptions<SecuritySettings>, SecuritySettingsValidator>();
 
 builder.Services.AddSwaggerGen(c =>
 {
@@ -67,13 +85,8 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-//var app = builder.Build();
-//if (app.Environment.IsDevelopment())
-//{
-// app.UseSwagger();
-// app.UseSwaggerUI();
-//}
-// Swagger يعمل في Development و Docker و Production - للطبقة الأولى
+var app = builder.Build();
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -110,5 +123,13 @@ static async Task ApplyDatabaseMigrationsAsync(WebApplication app)
     }
 
     var seeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
-    await seeder.SeedAsync();
+
+    try
+    {
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Seeding failed; continuing application startup: {Message}", ex.Message);
+    }
 }

@@ -14,6 +14,7 @@ public class AcademicDepartmentConfiguration : IEntityTypeConfiguration<Academic
         builder.Property(e => e.DepartmentName).HasColumnName("department_name").HasMaxLength(100).IsRequired();
         builder.Property(e => e.DepartmentCode).HasColumnName("department_code").HasMaxLength(20);
         builder.Property(e => e.HeadName).HasColumnName("head_name").HasMaxLength(100);
+        builder.Property(e => e.Description).HasColumnName("description").HasMaxLength(500);
         builder.HasIndex(e => e.DepartmentCode).IsUnique();
         builder.HasOne(e => e.Faculty)
             .WithMany(f => f.AcademicDepartments)

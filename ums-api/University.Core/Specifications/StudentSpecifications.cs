@@ -18,7 +18,6 @@ public class StudentSpecifications : BaseSpecification<Student>
     {
         var spec = new StudentSpecifications();
         spec.AddCriteria(criteria);
-        spec.AddInclude(s => s.User!);
         spec.AddInclude(s => s.Major!);
         return spec;
     }

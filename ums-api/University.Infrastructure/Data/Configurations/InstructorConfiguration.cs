@@ -11,18 +11,17 @@ public class InstructorConfiguration : IEntityTypeConfiguration<Instructor>
     {
         builder.ToTable("instructors");
         builder.ConfigureBase();
-        builder.Property(e => e.UserId).HasColumnName("user_id");
         builder.Property(e => e.FacultyId).HasColumnName("faculty_id");
         builder.Property(e => e.InstructorNumber).HasColumnName("instructor_number").HasMaxLength(20).IsRequired();
         builder.Property(e => e.AcademicRank).HasColumnName("academic_rank")
             .HasVarcharEnumConversion<AcademicRank>()
             .HasMaxLength(30);
         builder.Property(e => e.Specialization).HasColumnName("specialization").HasMaxLength(100);
-        builder.HasIndex(e => e.UserId).IsUnique();
         builder.HasIndex(e => e.InstructorNumber).IsUnique();
-        builder.HasOne(e => e.User)
-            .WithOne(u => u.Instructor)
-            .HasForeignKey<Instructor>(e => e.UserId)
+        // Shared-Primary-Key 1:1: instructors.id IS employees.id (instructors are employees).
+        builder.HasOne(e => e.Employee)
+            .WithOne(emp => emp.Instructor)
+            .HasForeignKey<Instructor>(e => e.Id)
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(e => e.Faculty)
             .WithMany(f => f.Instructors)

@@ -6,4 +6,5 @@ public class CreateAcademicDepartmentRequestDto
     public string DepartmentName { get; set; } = string.Empty;
     public string DepartmentCode { get; set; } = string.Empty;
     public string? HeadName { get; set; }
+    public string? Description { get; set; }
 }

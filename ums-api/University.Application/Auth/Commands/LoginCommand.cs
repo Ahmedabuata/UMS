@@ -7,7 +7,7 @@ namespace University.Application.Auth.Commands;
 
 public class LoginCommand : ICommand<AuthResponseDto>
 {
-    public string Email { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
 }
 
@@ -22,5 +22,5 @@ public class LoginCommandHandler : ICommandHandler<LoginCommand, AuthResponseDto
 
     public Task<Result<AuthResponseDto>> HandleAsync(
         LoginCommand command, CancellationToken cancellationToken = default)
-        => _authService.LoginAsync(command.Email, command.Password);
+        => _authService.LoginAsync(command.Username, command.Password);
 }

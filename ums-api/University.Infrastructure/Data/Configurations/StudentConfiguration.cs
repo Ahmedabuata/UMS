@@ -11,7 +11,6 @@ public class StudentConfiguration : IEntityTypeConfiguration<Student>
     {
         builder.ToTable("students");
         builder.ConfigureBase();
-        builder.Property(e => e.UserId).HasColumnName("user_id");
         builder.Property(e => e.MajorId).HasColumnName("major_id");
         builder.Property(e => e.StudentNumber).HasColumnName("student_number").HasMaxLength(20).IsRequired();
         builder.Property(e => e.Gpa).HasColumnName("gpa").HasPrecision(4, 2);
@@ -21,11 +20,15 @@ public class StudentConfiguration : IEntityTypeConfiguration<Student>
             .HasVarcharEnumConversion<StudentStatus>()
             .HasMaxLength(20);
         builder.HasIndex(e => e.StudentNumber).IsUnique();
-        builder.HasIndex(e => e.UserId).IsUnique();
+
+        // User link: Student.UserId -> users.id. Deleting the User keeps the Student with
+        // UserId = NULL (SetNull). NOT a shared primary key (student.Id != user.Id).
         builder.HasOne(e => e.User)
-            .WithOne(u => u.Student)
-            .HasForeignKey<Student>(e => e.UserId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .WithMany()
+            .HasForeignKey(e => e.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.Property(e => e.UserId).IsRequired(false);
+
         builder.HasOne(e => e.Major)
             .WithMany(m => m.Students)
             .HasForeignKey(e => e.MajorId)

@@ -12,9 +12,11 @@ public class ClassroomConfiguration : IEntityTypeConfiguration<Classroom>
         builder.ToTable("classrooms");
         builder.ConfigureBase();
         builder.Property(e => e.BranchId).HasColumnName("branch_id");
+        builder.Property(e => e.BuildingId).HasColumnName("building_id");
         builder.Property(e => e.RoomNumber).HasColumnName("room_number").HasMaxLength(20).IsRequired();
         builder.Property(e => e.BuildingName).HasColumnName("building_name").HasMaxLength(50);
         builder.Property(e => e.Capacity).HasColumnName("capacity");
+        builder.Property(e => e.Floor).HasColumnName("floor");
         builder.Property(e => e.RoomType).HasColumnName("room_type")
             .HasVarcharEnumConversion<RoomType>()
             .HasMaxLength(20);
@@ -23,5 +25,9 @@ public class ClassroomConfiguration : IEntityTypeConfiguration<Classroom>
             .WithMany(b => b.Classrooms)
             .HasForeignKey(e => e.BranchId)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne(e => e.Building)
+            .WithMany(b => b.Classrooms)
+            .HasForeignKey(e => e.BuildingId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

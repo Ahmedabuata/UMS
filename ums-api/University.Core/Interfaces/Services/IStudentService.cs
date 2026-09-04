@@ -11,4 +11,5 @@ public interface IStudentService
     Task<Result<decimal>> GetStudentGPAAsync(Guid studentId);
     Task<Result<bool>> UpdateGPAAsync(Guid studentId, decimal gpa);
     Task<Result<IEnumerable<StudentResponseDto>>> GetAllAsync();
+    Task<Result<string>> PreviewStudentNumberAsync(Guid facultyId, Guid academicDepartmentId);
 }

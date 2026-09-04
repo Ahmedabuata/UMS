@@ -10,5 +10,4 @@ public interface IUserService
     Task<Result<UserResponseDto>> UpdateUserAsync(Guid id, UpdateUserRequestDto dto);
     Task<Result<bool>> DeleteUserAsync(Guid id);
     Task<Result<bool>> AssignRoleAsync(Guid userId, Guid roleId);
-    Task<Result<IEnumerable<UserResponseDto>>> GetByBranchAsync(Guid branchId);
 }

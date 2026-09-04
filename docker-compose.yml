@@ -11,7 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - ums_pgdata:/var/lib/postgresql/data
-      - ./database/DB-FINAL-CORRECT.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./database/init-default.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ums_user -d ums_db"]
       interval: 10s

@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using University.API.Attributes;
 using University.Core.Interfaces.Services;
 using University.Shared.Common;
 using University.Shared.DTOs.Finance;
@@ -8,7 +8,7 @@ namespace University.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[HasPermission("FINANCE_READ")]
 public class FinanceController : ControllerBase
 {
     private readonly IFinancialService _financialService;
@@ -33,6 +33,7 @@ public class FinanceController : ControllerBase
     }
 
     [HttpPost("payments")]
+    [HasPermission("FINANCE_WRITE")]
     public async Task<IActionResult> RecordPayment([FromBody] PaymentRequestDto dto)
     {
         var result = await _financialService.RecordPaymentAsync(dto);
@@ -40,6 +41,7 @@ public class FinanceController : ControllerBase
     }
 
     [HttpPost("students/{studentId:guid}/scholarships/{scholarshipId:guid}")]
+    [HasPermission("FINANCE_WRITE")]
     public async Task<IActionResult> ApplyScholarship(Guid studentId, Guid scholarshipId)
     {
         var result = await _financialService.ApplyScholarshipAsync(studentId, scholarshipId);
@@ -47,6 +49,7 @@ public class FinanceController : ControllerBase
     }
 
     [HttpPost("{id:guid}/refund")]
+    [HasPermission("FINANCE_WRITE")]
     public async Task<IActionResult> Refund(Guid id, [FromQuery] decimal amount, [FromQuery] string reason)
     {
         var result = await _financialService.RefundAsync(id, amount, reason);
