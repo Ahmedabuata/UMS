@@ -138,4 +138,16 @@ public class SecurityUsersController : ControllerBase
             _ => BadRequest(result.Error)
         };
     }
+	
+using var tx = _context.Database.BeginTransaction(_capBus, autoCommit: false);
+var user = await _userService.CreateAsync(dto);
+await _capBus.PublishAsync("ums.user.created", new UserCreatedEvent {
+  ExternalUserId = user.Id, Email = user.Email, FullName = user.FullName
+});
+await tx.CommitAsync();	
+	
+	
 }
+
+
+

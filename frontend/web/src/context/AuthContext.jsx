@@ -49,6 +49,25 @@ export function AuthProvider({ children }) {
     setPermissions([])
   }, [])
 
+  const isSuperAdmin = useCallback(() => {
+    if (!permissions) return false
+    if (permissions.includes('SUPER_ADMIN')) return true
+    if (user?.role === 'SUPER_ADMIN' || user?.roleName === 'SUPER_ADMIN') return true
+    return false
+  }, [permissions, user])
+
+  const hasPermission = useCallback((perm) => {
+    if (!perm) return true
+    if (isSuperAdmin()) return true
+    return permissions.includes(perm)
+  }, [permissions, isSuperAdmin])
+
+  const hasAnyPermission = useCallback((perms) => {
+    if (!perms || perms.length === 0) return true
+    if (isSuperAdmin()) return true
+    return perms.some((p) => permissions.includes(p))
+  }, [permissions, isSuperAdmin])
+
   const value = useMemo(() => ({
     user,
     token,
@@ -58,8 +77,11 @@ export function AuthProvider({ children }) {
     login,
     logout,
     changePassword,
-    initializing
-  }), [user, token, permissions, mustChangePassword, login, logout, changePassword, initializing])
+    initializing,
+    hasPermission,
+    hasAnyPermission,
+    isSuperAdmin,
+  }), [user, token, permissions, mustChangePassword, login, logout, changePassword, initializing, hasPermission, hasAnyPermission, isSuperAdmin])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

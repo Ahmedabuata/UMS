@@ -23,8 +23,6 @@ function RequireAuth({ children }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />
 }
 
-// V6: users with mustChangePassword=true are forced to change their password
-// before they can access any module. Redirects guarded pages to /force-change-password.
 function MustChangeGuard({ children }) {
   const { isAuthenticated, mustChangePassword } = useAuth()
   if (isAuthenticated && mustChangePassword) return <Navigate to="/force-change-password" replace />
@@ -37,8 +35,9 @@ function RedirectIfAuthed({ children }) {
 }
 
 function Gate({ perms, children }) {
-  const { permissions } = useAuth()
-  const ok = perms.some((p) => permissions.includes(p))
+  const { permissions, hasAnyPermission, isSuperAdmin } = useAuth()
+  if (isSuperAdmin()) return children
+  const ok = hasAnyPermission(perms)
   return ok ? children : <Navigate to="/dashboard" replace />
 }
 
@@ -56,22 +55,15 @@ export default function App() {
             <Route path="/permissions" element={<Gate perms={['USER_READ']}><Permissions /></Gate>} />
             <Route path="/audit-logs" element={<Gate perms={['USER_READ']}><AuditLogs /></Gate>} />
             <Route path="/security-policies" element={<Gate perms={['USER_READ']}><SecurityPolicies /></Gate>} />
-            <Route path="/branches" element={<Branches />} />
-            <Route path="/modules" element={<Modules />} />
-            <Route path="/administrative-departments" element={<AdministrativeDepartments />} />
-            <Route path="/hr" element={<HRModule />} />
-            <Route path="/faculties" element={<Faculties />} />
-            <Route path="/buildings" element={<Buildings />} />
-            <Route path="/semesters" element={<Semesters />} />
+            <Route path="/branches" element={<Gate perms={['BRANCH_READ','USER_READ']}><Branches /></Gate>} />
+            <Route path="/modules" element={<Gate perms={['MODULE_READ','USER_READ']}><Modules /></Gate>} />
+            <Route path="/administrative-departments" element={<Gate perms={['ADMIN_DEPT_READ','USER_READ']}><AdministrativeDepartments /></Gate>} />
+            <Route path="/hr" element={<Gate perms={['HR_EMPLOYEE_READ','HR_ATTENDANCE_READ','HR_RECRUITMENT_READ','HR_LEAVE_READ','HR_CONTRACT_READ','HR_SALARY_READ','HR_EVALUATION_READ']}><HRModule /></Gate>} />
+            <Route path="/faculties" element={<Gate perms={['FACULTY_READ','USER_READ']}><Faculties /></Gate>} />
+            <Route path="/buildings" element={<Gate perms={['BUILDING_READ','USER_READ']}><Buildings /></Gate>} />
+            <Route path="/semesters" element={<Gate perms={['SEMESTER_READ','USER_READ']}><Semesters /></Gate>} />
           </Route>
-          <Route
-            path="/login"
-            element={
-              <RedirectIfAuthed>
-                <Login />
-              </RedirectIfAuthed>
-            }
-          />
+          <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
           <Route path="/force-change-password" element={<RequireAuth><ForceChangePassword /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
