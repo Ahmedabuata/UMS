@@ -133,8 +133,3 @@ static async Task ApplyDatabaseMigrationsAsync(WebApplication app)
         logger.LogWarning(ex, "Seeding failed; continuing application startup: {Message}", ex.Message);
     }
 }
-
-services.AddCap(o => {
-  o.UseEntityFramework<ApplicationDbContext>();
-  o.UseRabbitMQ(r => r.HostName = "rabbitmq");
-});

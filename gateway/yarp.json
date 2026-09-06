@@ -1,0 +1,12 @@
+{
+  "ReverseProxy": {
+    "Routes": {
+      "hr-route": { "ClusterId": "hr-cluster", "Match": { "Path": "/api/hr/{**catch-all}" }, "Transforms": [{ "PathPattern": "/api/{**catch-all}" }] },
+      "ums-route": { "ClusterId": "ums-cluster", "Match": { "Path": "/api/{**catch-all}" } }
+    },
+    "Clusters": {
+      "hr-cluster": { "Destinations": { "hr-api": { "Address": "http://hr-api:80" } } },
+      "ums-cluster": { "Destinations": { "ums-api": { "Address": "http://ums-api:80" } } }
+    }
+  }
+}

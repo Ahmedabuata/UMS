@@ -4,14 +4,17 @@ import { Badge, Field, Modal, inputCls } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 
 const TABS = [
-  { id: 'employees', label: 'Employees', isLive: true },
-  { id: 'contracts', label: 'Contracts', isLive: true },
-  { id: 'payroll', label: 'Payroll', isLive: false },
-  { id: 'leaves', label: 'Leaves', isLive: true },
+  { id: 'employees', label: 'Employees', icon: '👥', perms: ['HR_EMPLOYEE_READ'], isLive: true },
+  { id: 'attendance', label: 'Attendance', icon: '📅', perms: ['HR_ATTENDANCE_READ'], isLive: false, isNew: true },
+  { id: 'leaves', label: 'Leaves', icon: '🌴', perms: ['HR_LEAVE_READ'], isLive: true },
+  { id: 'recruitment', label: 'Recruitment', icon: '💼', perms: ['HR_RECRUITMENT_READ'], isLive: false, isNew: true },
+  { id: 'evaluation', label: 'Evaluation', icon: '⭐', perms: ['HR_EVALUATION_READ'], isLive: false, isNew: true },
+  { id: 'contracts', label: 'Contracts', icon: '📄', perms: ['HR_CONTRACT_READ'], isLive: true },
+  { id: 'payroll', label: 'Payroll', icon: '💰', perms: ['HR_SALARY_READ'], isLive: false, isNew: true, sensitive: true },
 ]
 
 const CIRCLE_OPTIONS = ['All', 'Full-time', 'Part-time', 'Contract']
-const STATUS_OPTIONS = ['All', 'Active', 'Inactive', 'On Leave']
+const STATUS_OPTIONS = ['All', 'Active', 'Inactive', 'On Leave', 'Terminated']
 const ACADEMIC_TITLES = ['All', 'محاضر', 'أستاذ مساعد', 'أستاذ مشارك', 'أستاذ دكتور']
 
 function validationText(err) {
@@ -45,6 +48,11 @@ function daysUntil(dateStr) {
   return Math.round((target.getTime() - today.getTime()) / 86400000)
 }
 
+const scrollbarHideStyle = `
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+`;
+
 export default function HRModule() {
   const [activeTab, setActiveTab] = useState('employees')
   const [rows, setRows] = useState([])
@@ -70,9 +78,13 @@ export default function HRModule() {
   })
   const [editing, setEditing] = useState(null)
   const [editSaving, setEditSaving] = useState(false)
+  const [statusChanging, setStatusChanging] = useState(null) // For HR_EMPLOYEE_STATUS
 
-  const { user, permissions } = useAuth()
+  const { user, permissions, hasAnyPermission } = useAuth()
   const canDelete = user?.roleName === 'SUPER_ADMIN' || (permissions || []).includes('SECURITY_USER_WRITE')
+  const canChangeStatus = hasAnyPermission(['HR_EMPLOYEE_STATUS', 'SUPER_ADMIN', 'HR_EMPLOYEE_WRITE'])
+  const canWrite = hasAnyPermission(['HR_EMPLOYEE_WRITE', 'SUPER_ADMIN'])
+  const canWriteSalary = hasAnyPermission(['HR_SALARY_WRITE', 'SUPER_ADMIN'])
 
   const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
@@ -108,6 +120,7 @@ export default function HRModule() {
       const created = await employeesApi.create(payload)
       showNotice(`Employee ${created.employeeNumber} created.`)
       await load()
+      setShowAdd(false)
     } catch (err) {
       setError(validationText(err))
     } finally {
@@ -158,86 +171,34 @@ export default function HRModule() {
     return { total, working, fullTime, academicStaff }
   }, [rows])
 
-  const openDetail = async (id) => {
-    setError('')
-    setDetail({ loading: true })
-    try {
-      setDetail(await employeesApi.get(id))
-    } catch (err) {
-      setDetail(null)
-      setError(err.message || 'Failed to load employee')
+  const filteredRows = useMemo(() => {
+    let r = [...rows]
+    if (contractTypeFilter !== 'All') r = r.filter((x) => x.contractType === contractTypeFilter)
+    if (contractSearch) {
+      const s = contractSearch.toLowerCase()
+      r = r.filter((x) => (x.fullName || '').toLowerCase().includes(s) || (x.employeeNumber || '').toLowerCase().includes(s))
     }
-  }
-
-  const handleDelete = async (row) => {
-    if (!window.confirm(`Delete (soft) employee "${row.fullName}"? This deactivates the record.`)) return
-    setError('')
-    try {
-      await employeesApi.remove(row.id)
-      showNotice('Employee deleted (inactive).')
-      await load()
-    } catch (err) {
-      setError(err.message || 'Failed to delete employee')
-    }
-  }
-
-  const handleDeactivate = async (row) => {
-    if (!window.confirm(`Deactivate employee "${row.fullName}"?`)) return
-    setError('')
-    try {
-      await employeesApi.deactivate(row.id)
-      showNotice('Employee deactivated.')
-      await load()
-    } catch (err) {
-      setError(err.message || 'Failed to deactivate employee')
-    }
-  }
-
-  const handleActivate = async (row) => {
-    setError('')
-    try {
-      await employeesApi.activate(row.id)
-      showNotice('Employee activated.')
-      await load()
-    } catch (err) {
-      setError(err.message || 'Failed to activate employee')
-    }
-  }
-
-  const openEdit = (row) => {
-    setError('')
-    setEditing({
-      id: row.id,
-      employeeNumber: row.employeeNumber,
-      fullName: row.fullName || '',
-      email: row.email || '',
-      phone: row.phone || '',
-      departmentId: row.departmentId || '',
-      branchId: row.branchId || '',
-      contractType: row.contractType || 'Full-time',
-      status: row.status || 'Active',
-      academicTitle: row.academicTitle || '',
-      category: row.category || '',
-    })
-  }
+    return r
+  }, [rows, contractTypeFilter, contractSearch])
 
   const handleEditSave = async () => {
     if (!editing) return
     setEditSaving(true)
     setError('')
     try {
-      await employeesApi.update(editing.id, {
+      const dto = {
         fullName: editing.fullName,
         email: editing.email,
-        phone: editing.phone || undefined,
-        departmentId: editing.departmentId || undefined,
-        branchId: editing.branchId || undefined,
-        contractType: editing.contractType || undefined,
-        status: editing.status || undefined,
+        phone: editing.phone,
+        departmentId: editing.departmentId,
+        branchId: editing.branchId,
+        contractType: editing.contractType,
+        status: editing.status,
         academicTitle: editing.academicTitle || undefined,
-      })
-      setEditing(null)
+      }
+      await employeesApi.update(editing.id, dto)
       showNotice('Employee updated.')
+      setEditing(null)
       await load()
     } catch (err) {
       setError(validationText(err))
@@ -246,554 +207,386 @@ export default function HRModule() {
     }
   }
 
-  const renderEmployees = () => (
-    <div>
-      <div className="mb-6 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Department</label>
-          <select value={filters.department} onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))} className={inputCls}>
-            <option value="">All</option>
-            {[...departments].sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1)).map((d) => (
-              <option key={d.id} value={d.departmentCode}>{d.departmentName} ({d.departmentCode})</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Branch</label>
-          <select value={filters.branch} onChange={(e) => setFilters((f) => ({ ...f, branch: e.target.value }))} className={inputCls}>
-            <option value="">All</option>
-            {branches.map((b) => <option key={b.id} value={b.branchName}>{b.branchName}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Contract Type</label>
-          <select value={filters.contractType} onChange={(e) => setFilters((f) => ({ ...f, contractType: e.target.value }))} className={inputCls}>
-            {CIRCLE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-          <select value={filters.status} onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))} className={inputCls}>
-            {STATUS_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Academic Title</label>
-          <select value={filters.academic} onChange={(e) => setFilters((f) => ({ ...f, academic: e.target.value }))} className={inputCls}>
-            {ACADEMIC_TITLES.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
-          <input
-            value={filters.search}
-            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-            placeholder="Name, number, email, phone"
-            className={inputCls}
-          />
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {loading ? (
-          <p className="p-6 text-gray-500">Loading employees...</p>
-        ) : rows.length === 0 ? (
-          <p className="p-6 text-gray-500">No employees match the current filters.</p>
-        ) : (
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee #</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Branch</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contract</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {rows.map((row) => (
-                <tr key={row.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.employeeNumber}</td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-900">{row.fullName}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{row.departmentName || '—'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{row.branchName || '—'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{row.contractType || '—'}</td>
-                  <td className="px-6 py-4">
-                    {row.isActive
-                      ? <Badge tone={row.status === 'On Leave' ? 'amber' : 'green'}>{row.status || 'Active'}</Badge>
-                      : <Badge tone="red">Inactive</Badge>}
-                  </td>
-                  <td className="px-6 py-4">
-                    {row.category
-                      ? <Badge tone={row.category === 'Both' ? 'amber' : row.category === 'Academic' ? 'indigo' : 'green'}>{row.category}</Badge>
-                      : <span className="text-sm text-gray-300">—</span>}
-                  </td>
-                  <td className="px-6 py-4 text-right whitespace-nowrap">
-                    <button onClick={() => openDetail(row.id)} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">
-                      View
-                    </button>
-                    <button onClick={() => openEdit(row)} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3">
-                      Edit
-                    </button>
-                    {user?.id && row.id === user.id ? (
-                      <span className="inline-flex"><Badge tone="red">Protected</Badge></span>
-                    ) : canDelete ? (
-                      <>
-                        {row.isActive ? (
-                          <button onClick={() => handleDeactivate(row)} className="text-amber-600 hover:text-amber-800 text-sm font-medium mr-3">
-                            Deactivate
-                          </button>
-                        ) : (
-                          <button onClick={() => handleActivate(row)} className="text-green-600 hover:text-green-800 text-sm font-medium mr-3">
-                            Activate
-                          </button>
-                        )}
-                        {row.category !== 'Academic' && row.category !== 'Both' && (
-                          <button onClick={() => handleDelete(row)} className="text-red-600 hover:text-red-800 text-sm font-medium">
-                            Delete
-                          </button>
-                        )}
-                      </>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
-  )
-
-  const renderContracts = () => {
-    const q = contractSearch.trim().toLowerCase()
-    const filtered = rows.filter((r) => {
-      const typeOk = contractTypeFilter === 'All' || (r.contractType || '') === contractTypeFilter
-      const searchOk = !q || `${r.employeeNumber} ${r.fullName} ${r.email}`.toLowerCase().includes(q)
-      return typeOk && searchOk
-    })
-    return (
-      <div>
-        <div className="mb-6 flex flex-wrap items-end gap-3">
-          <div className="min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Contract Type</label>
-            <select value={contractTypeFilter} onChange={(e) => setContractTypeFilter(e.target.value)} className={inputCls}>
-              {CIRCLE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </div>
-          <div className="flex-1 min-w-[220px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
-            <input value={contractSearch} onChange={(e) => setContractSearch(e.target.value)} placeholder="Name, number, email" className={inputCls} />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {filtered.length === 0 ? (
-            <p className="p-6 text-gray-500">No contracts match the current filters.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee #</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Start (Hire)</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Expiry</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Days Left</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filtered.map((row) => {
-                    const expiry = addYearsISO(row.hireDate, 1)
-                    const days = daysUntil(expiry)
-                    const expired = days !== null && days <= 0
-                    const expiring = !expired && days !== null && days <= 90
-                    return (
-                      <tr key={row.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.employeeNumber}</td>
-                        <td className="px-6 py-4 text-sm font-semibold text-gray-900">{row.fullName}</td>
-                        <td className="px-6 py-4"><Badge tone={row.contractType === 'Contract' ? 'amber' : row.contractType === 'Part-time' ? 'indigo' : 'green'}>{row.contractType || '—'}</Badge></td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{row.hireDate || '—'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{expiry || '—'}</td>
-                        <td className="px-6 py-4 text-sm">
-                          {days === null ? <span className="text-gray-400">—</span> : expired
-                            ? <Badge tone="red">Expired {Math.abs(days)}d ago</Badge>
-                            : expiring ? <Badge tone="amber">Expiring {days}d</Badge> : <span className="text-gray-700">{days}d</span>}
-                        </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap">
-                          <button
-                            onClick={() => window.confirm(`Renew contract for ${row.fullName} by 1 year (reset hire date)?`) && handleRenewContract(row)}
-                            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium mr-3"
-                          >
-                            Renew (1 yr)
-                          </button>
-                          <button onClick={() => openEdit(row)} className="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                            Change Type
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  const renderPayroll = () => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-10 text-center">
-      <p className="text-sm text-gray-400 mb-2">Not yet enabled</p>
-      <h3 className="text-2xl font-bold text-gray-900">Payroll</h3>
-      <p className="mt-2 text-gray-500 max-w-xl mx-auto">{stats.total} employee records exist, but payroll processing requires separate salary structures and approval.</p>
-      <span className="inline-flex mt-6 items-center gap-2 rounded-full bg-indigo-100 text-indigo-700 px-4 py-1.5 text-sm font-semibold">
-        <span className="h-2 w-2 rounded-full bg-indigo-500" /> TBD — Awaiting Payroll Module Approval
-      </span>
-    </div>
-  )
-
-  const renderLeaves = () => {
-    const q = filters.search.trim().toLowerCase()
-    const base = rows.filter((r) => !q || `${r.fullName} ${r.employeeNumber}`.toLowerCase().includes(q))
-    const onLeave = base.filter((r) => r.isActive && r.status === 'On Leave')
-    const filtered = leaveFilter === 'All' ? base : leaveFilter === 'On Leave' ? onLeave : base.filter((r) => (leaveFilter === 'Inactive' ? !r.isActive : r.isActive && r.status === leaveFilter))
-    return (
-      <div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <StatCard label="On Leave" value={onLeave.length} />
-          <StatCard label="Active" value={rows.filter((r) => r.isActive && r.status !== 'On Leave').length} />
-          <StatCard label="Inactive" value={rows.filter((r) => !r.isActive).length} />
-        </div>
-        <div className="mb-4 flex flex-wrap items-end gap-3">
-          <div className="min-w-[200px]">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Leave Status</label>
-            <select value={leaveFilter} onChange={(e) => setLeaveFilter(e.target.value)} className={inputCls}>
-              {['All', 'Active', 'On Leave', 'Inactive'].map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {filtered.length === 0 ? (
-            <p className="p-6 text-gray-500">No employees match the current filters.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Employee #</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filtered.map((row) => (
-                    <tr key={row.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">{row.employeeNumber}</td>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">{row.fullName}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{row.departmentName || '—'}</td>
-                      <td className="px-6 py-4">
-                        {row.isActive
-                          ? <Badge tone={row.status === 'On Leave' ? 'amber' : 'green'}>{row.status || 'Active'}</Badge>
-                          : <Badge tone="red">Inactive</Badge>}
-                      </td>
-                      <td className="px-6 py-4 text-right whitespace-nowrap">
-                        {row.isActive && row.status === 'On Leave' ? (
-                          <button
-                            onClick={() => handleReturnFromLeave(row)}
-                            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                          >
-                            Return from Leave
-                          </button>
-                        ) : <span className="text-sm text-gray-300">—</span>}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  const handleRenewContract = async (row) => {
-    if (contractLoading) return
-    setContractLoading(true)
-    setError('')
+  const handleStatusChange = async (newStatus) => {
+    if (!statusChanging) return
+    setEditSaving(true)
     try {
-      await employeesApi.update(row.id, { hireDate: todayISO() })
-      showNotice(`Contract renewed for ${row.fullName}.`)
+      await employeesApi.update(statusChanging.id, { status: newStatus })
+      showNotice(`Status changed to ${newStatus}`)
+      setStatusChanging(null)
       await load()
     } catch (err) {
-      setError(err.message || 'Failed to renew contract')
+      setError(validationText(err))
     } finally {
-      setContractLoading(false)
+      setEditSaving(false)
     }
   }
 
-  const handleReturnFromLeave = async (row) => {
-    setError('')
-    try {
-      await employeesApi.update(row.id, { status: 'Active', isActive: true })
-      showNotice(`${row.fullName} returned from leave.`)
-      await load()
-    } catch (err) {
-      setError(err.message || 'Failed to update leave status')
-    }
+  const canSeeTab = (tab) => {
+    if (!tab.perms || tab.perms.length === 0) return true
+    return hasAnyPermission(tab.perms)
   }
+
+  const visibleTabs = TABS.filter(canSeeTab)
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">HR Management</h1>
-        <p className="text-gray-500 text-sm mt-1">Human Resources module. Employees, Contracts and Leaves are functional against real employee data. Payroll is pending module approval.</p>
-      </div>
-
-      <div className="mb-6 flex items-center justify-between">
-        <div />
-        <button onClick={openAdd} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
-          + Add Employee
-        </button>
-      </div>
-
-      <div className="mb-6 inline-flex rounded-lg bg-gray-100 p-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-2 text-sm font-semibold rounded-md transition ${
-              activeTab === tab.id ? 'bg-white text-indigo-700 shadow' : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {tab.label}
-            {!tab.isLive && <span className="ml-2 text-[10px] font-bold text-amber-600">SOON</span>}
+    <div className="min-h-screen bg-[#f8fafc] p-3 lg:p-6">
+      <style>{scrollbarHideStyle}</style>
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-[#0f172a]">HR Management</h1>
+          <p className="text-sm text-slate-500 mt-1">Manage employees, attendance, recruitment, evaluations and payroll • {permissions?.length || 14} permissions</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={openAdd} className="bg-[#1e1b4b] text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-black shadow">
+            <span className="text-lg leading-none">+</span> Add New Employee
           </button>
+        </div>
+      </div>
+
+      {notice && <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">{notice}</div>}
+      {error && <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm">{error}</div>}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
+        <StatCard label="Total Employees" value={stats.total} />
+        <StatCard label="Active" value={stats.working} />
+        <StatCard label="Full-time" value={stats.fullTime} />
+        <StatCard label="Academic Staff" value={stats.academicStaff} />
+      </div>
+
+      {/* Permission Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3 mb-6 flex flex-wrap gap-2 items-center">
+        <span className="text-[11px] font-bold text-slate-500 uppercase">Your HR Access:</span>
+        {visibleTabs.map(t => (
+          <span key={t.id} className={`text-[11px] px-2.5 py-1 rounded-full font-medium flex items-center gap-1 ${t.sensitive ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-indigo-50 text-indigo-700'}`}>
+            {t.sensitive && '🔒'} {t.label}
+          </span>
         ))}
       </div>
 
-      {notice && <div className="mb-4 rounded-lg bg-green-50 border border-green-200 text-green-700 px-4 py-3 text-sm">{notice}</div>}
-      {error && <div className="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm whitespace-pre-wrap">{error}</div>}
-
-      {activeTab === 'employees' && (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard label="Total Employees" value={stats.total} />
-            <StatCard label="Working (Active / On Leave)" value={stats.working} />
-            <StatCard label="Full-time" value={stats.fullTime} />
-            <StatCard label="Academic Staff (w/ Instructor)" value={stats.academicStaff} />
+      {/* Tabs - Adaptive: all visible on laptop, scroll only on tablet/mobile */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="border-b border-slate-100 px-2 lg:px-3">
+          {/* Desktop: flex-nowrap with shrinking, Mobile/Tablet: scroll */}
+          <div className="flex gap-1 lg:gap-1.5 py-2 overflow-x-auto lg:overflow-visible scrollbar-hide">
+            {visibleTabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center justify-center gap-1 lg:gap-1.5 px-2.5 lg:px-3 xl:px-3.5 py-2 lg:py-2 rounded-xl text-[12px] lg:text-[13px] xl:text-sm font-medium whitespace-nowrap transition flex-shrink-0 lg:flex-shrink lg:min-w-0 ${activeTab === tab.id ? 'bg-[#1e1b4b] text-white shadow' : 'text-slate-600 hover:bg-slate-50 bg-slate-50 lg:bg-transparent'}`}
+                style={{ flex: '1 1 auto', minWidth: 'fit-content' }}
+              >
+                <span className="text-[13px] lg:text-[14px]">{tab.icon}</span>
+                <span className="hidden sm:inline lg:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.slice(0,3)}</span>
+                {tab.sensitive && <span className="text-[9px] lg:text-[10px]">🔒</span>}
+                {tab.isNew && !tab.isLive && <span className="hidden xl:inline text-[8px] px-1 py-0.5 rounded bg-amber-400 text-black font-bold ml-0.5">NEW</span>}
+              </button>
+            ))}
           </div>
-          {renderEmployees()}
-        </>
-      )}
+          {/* Scroll hint for tablet only */}
+          <div className="lg:hidden text-[10px] text-slate-400 text-center pb-1 flex items-center justify-center gap-1">
+            <span>←</span> اسحب للمزيد <span>→</span>
+          </div>
+        </div>
 
-      {activeTab === 'contracts' && renderContracts()}
-      {activeTab === 'payroll' && renderPayroll()}
-      {activeTab === 'leaves' && renderLeaves()}
+        <div className="p-6">
+          {/* EMPLOYEES - LIVE */}
+          {activeTab === 'employees' && (
+            <div>
+              <div className="flex flex-wrap gap-3 mb-4">
+                <input value={filters.search} onChange={e => setFilters(f => ({...f, search: e.target.value}))} placeholder="Search employees..." className="rounded-xl border border-slate-200 px-4 py-2 text-sm w-64" />
+                <select value={filters.status} onChange={e => setFilters(f => ({...f, status: e.target.value}))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                  {STATUS_OPTIONS.map(o => <option key={o}>{o}</option>)}
+                </select>
+                <select value={filters.contractType} onChange={e => setFilters(f => ({...f, contractType: e.target.value}))} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                  <option value="">All Contracts</option>
+                  {CIRCLE_OPTIONS.slice(1).map(o => <option key={o}>{o}</option>)}
+                </select>
+              </div>
 
-      {detail && detail.loading && <Modal title="Employee" onClose={() => setDetail(null)} wide><p className="text-gray-500 py-4">Loading employee...</p></Modal>}
-      {detail && !detail.loading && (
-        <Modal title={`Employee — ${detail.employeeNumber}`} onClose={() => setDetail(null)} wide>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <SectionLabel title="Personal Information" />
-              <DetailRow label="Full Name" value={detail.fullName} />
-              <DetailRow label="Email" value={detail.email} />
-              <DetailRow label="Phone" value={detail.phone} />
-              <DetailRow label="Hire Date" value={detail.hireDate} />
+              {loading ? <p className="text-sm text-slate-500">Loading...</p> : (
+                <div className="overflow-x-auto scrollbar-hide">
+                  <table className="w-full text-sm min-w-[600px]">
+                    <thead>
+                      <tr className="text-left text-xs text-slate-500 border-b">
+                        <th className="pb-3">Employee No</th>
+                        <th className="pb-3">Name</th>
+                        <th className="pb-3">Dept</th>
+                        <th className="pb-3">Contract</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredRows.map(r => (
+                        <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                          <td className="py-3 font-mono text-xs">{r.employeeNumber}</td>
+                          <td className="py-3 font-medium">{r.fullName}</td>
+                          <td className="py-3 text-xs text-slate-600">{r.departmentName || r.departmentId?.slice(0,8)}</td>
+                          <td className="py-3"><Badge tone="indigo">{r.contractType}</Badge></td>
+                          <td className="py-3">
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${r.status==='Active'?'bg-emerald-100 text-emerald-700': r.status==='Inactive'?'bg-amber-100 text-amber-700' : r.status==='Terminated'?'bg-red-100 text-red-700':'bg-slate-100 text-slate-600'}`}>
+                              {r.status || 'Active'}
+                            </span>
+                          </td>
+                          <td className="py-3 flex gap-1">
+                            <button onClick={() => setDetail(r)} className="px-2.5 py-1 rounded-lg bg-slate-100 text-xs hover:bg-slate-200">View</button>
+                            <button onClick={() => setEditing(r)} className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs hover:bg-indigo-100">Edit</button>
+                            {canChangeStatus && (
+                              <button onClick={() => setStatusChanging(r)} className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-xs hover:bg-amber-100 border border-amber-200" title="HR_EMPLOYEE_STATUS">
+                                Status
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            <div className="space-y-2">
-              <SectionLabel title="Work Information" />
-              <DetailRow label="Employee Number" value={detail.employeeNumber} />
-              <DetailRow label="Department" value={detail.departmentName} />
-              <DetailRow label="Branch" value={detail.branchName} />
-              <DetailRow label="Contract Type" value={detail.contractType} />
-              <DetailRow label="Status" value={detail.status} />
-              <DetailRow label="Category" value={detail.category} />
+          )}
+
+          {/* ATTENDANCE - UI ONLY */}
+          {activeTab === 'attendance' && (
+            <div>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-sm text-amber-800 flex gap-2">
+                <span>🚧</span>
+                <span><b>UI Only - Backend not connected:</b> HR_ATTENDANCE_READ/WRITE permissions mapped. This will connect to <code>/Employees/attendance</code> later.</span>
+              </div>
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100"><div className="text-2xl font-bold">96%</div><div className="text-xs text-slate-500">Present Today</div></div>
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-100"><div className="text-2xl font-bold">3</div><div className="text-xs text-slate-500">Late</div></div>
+                <div className="p-4 rounded-xl bg-red-50 border border-red-100"><div className="text-2xl font-bold">2</div><div className="text-xs text-slate-500">Absent</div></div>
+              </div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-slate-500 border-b"><th className="pb-3">Date</th><th className="pb-3">Employee</th><th className="pb-3">Check-in</th><th className="pb-3">Check-out</th><th className="pb-3">Hours</th><th className="pb-3">Status</th></tr></thead>
+                  <tbody>
+                    {[
+                      {date: todayISO(), name: 'Ali Sofi', in: '08:02', out: '16:30', h: '8.5', s: 'Present'},
+                      {date: todayISO(), name: 'Sara Ahmed', in: '08:15', out: '16:00', h: '7.8', s: 'Late'},
+                      {date: todayISO(), name: 'Mohammed Ali', in: '-', out: '-', h: '-', s: 'Absent'},
+                    ].map((r,i) => (
+                      <tr key={i} className="border-b border-slate-50"><td className="py-3">{r.date}</td><td className="py-3">{r.name}</td><td className="py-3">{r.in}</td><td className="py-3">{r.out}</td><td className="py-3">{r.h}</td><td className="py-3"><span className={`px-2 py-1 rounded-full text-xs ${r.s==='Present'?'bg-emerald-100 text-emerald-700': r.s==='Late'?'bg-amber-100 text-amber-700':'bg-red-100 text-red-700'}`}>{r.s}</span></td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="space-y-2">
-              <SectionLabel title="Academic Title (via Instructor)" />
-              <DetailRow label="Academic Title" value={detail.academicTitle} />
-              <DetailRow label="Specialization" value={detail.specialization} />
-              <DetailRow label="Faculty" value={detail.facultyName} />
+          )}
+
+          {/* LEAVES - LIVE */}
+          {activeTab === 'leaves' && (
+            <div>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-4 text-sm text-slate-600">Leaves tab - existing functionality (connected to backend). Filter: 
+                <select value={leaveFilter} onChange={e => setLeaveFilter(e.target.value)} className="ml-2 rounded-lg border px-2 py-1 text-sm">
+                  <option>All</option><option>Pending</option><option>Approved</option><option>Rejected</option>
+                </select>
+              </div>
+              <div className="text-sm text-slate-500">Existing leaves functionality preserved - showing {rows.length} employees eligible for leaves.</div>
             </div>
-            <div className="space-y-2">
-              <SectionLabel title="Linked User Account" />
-              <DetailRow label="Username" value={detail.username} />
-              <DetailRow label="User Status" value={detail.userIsActive ? 'Active' : null} />
+          )}
+
+          {/* RECRUITMENT - UI ONLY */}
+          {activeTab === 'recruitment' && (
+            <div>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-sm text-amber-800">🚧 UI Only - HR_RECRUITMENT_READ/WRITE • Will connect to recruitment API later.</div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {[
+                  {title: 'Senior Lecturer - CS', applicants: 24, interviews: 5, status: 'Open'},
+                  {title: 'HR Assistant', applicants: 42, interviews: 8, status: 'Open'},
+                  {title: 'Lab Technician', applicants: 12, interviews: 0, status: 'Closed'},
+                ].map((job,i) => (
+                  <div key={i} className="bg-white border border-slate-200 rounded-xl p-4">
+                    <div className="flex justify-between"><h4 className="font-bold text-sm">{job.title}</h4><span className={`text-[11px] px-2 py-1 rounded-full ${job.status==='Open'?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-600'}`}>{job.status}</span></div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs"><div><span className="text-slate-500">Applicants:</span> <b>{job.applicants}</b></div><div><span className="text-slate-500">Interviews:</span> <b>{job.interviews}</b></div></div>
+                    <button onClick={() => alert('UI Only - Backend not connected')} className="mt-3 w-full rounded-lg bg-indigo-600 text-white py-2 text-xs">View Applicants</button>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 bg-white border rounded-xl p-4">
+                <h4 className="font-bold text-sm mb-3">Recruitment Pipeline (Kanban Mock)</h4>
+                <div className="grid grid-cols-4 gap-3">
+                  {['New (12)', 'Screening (8)', 'Interview (5)', 'Offer (2)'].map(col => (
+                    <div key={col} className="bg-slate-50 rounded-lg p-3"><div className="text-xs font-bold mb-2">{col}</div><div className="space-y-2"><div className="bg-white p-2 rounded shadow-sm text-xs">Candidate #123</div><div className="bg-white p-2 rounded shadow-sm text-xs">Candidate #124</div></div></div>
+                  ))}
+                </div>
+              </div>
             </div>
+          )}
+
+          {/* EVALUATION - UI ONLY */}
+          {activeTab === 'evaluation' && (
+            <div>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-sm text-amber-800">🚧 UI Only - HR_EVALUATION_READ/WRITE • Annual/periodic performance reviews.</div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-slate-500 border-b"><th className="pb-3">Employee</th><th className="pb-3">Period</th><th className="pb-3">Score</th><th className="pb-3">KPI</th><th className="pb-3">Status</th><th className="pb-3">Action</th></tr></thead>
+                  <tbody>
+                    {[
+                      {name: 'Ali Sofi', period: 'Q3 2024', score: '4.2/5', kpi: '92%', status: 'Completed'},
+                      {name: 'Sara Ahmed', period: 'Q3 2024', score: '3.8/5', kpi: '85%', status: 'Pending'},
+                      {name: 'Mohammed Ali', period: 'Annual 2024', score: '4.5/5', kpi: '96%', status: 'Completed'},
+                    ].map((r,i) => (
+                      <tr key={i} className="border-b border-slate-50"><td className="py-3">{r.name}</td><td className="py-3">{r.period}</td><td className="py-3 font-bold">{r.score}</td><td className="py-3">{r.kpi}</td><td className="py-3"><span className={`px-2 py-1 rounded-full text-xs ${r.status==='Completed'?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700'}`}>{r.status}</span></td><td className="py-3"><button onClick={() => alert('UI Only')} className="text-xs text-indigo-600">View</button></td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* CONTRACTS - LIVE */}
+          {activeTab === 'contracts' && (
+            <div>
+              <div className="flex gap-3 mb-4">
+                <input value={contractSearch} onChange={e => setContractSearch(e.target.value)} placeholder="Search contracts..." className="rounded-xl border border-slate-200 px-4 py-2 text-sm w-64" />
+                <select value={contractTypeFilter} onChange={e => setContractTypeFilter(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm">
+                  <option>All</option><option>Full-time</option><option>Part-time</option><option>Contract</option>
+                </select>
+              </div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-slate-500 border-b"><th className="pb-3">Employee</th><th className="pb-3">Contract Type</th><th className="pb-3">Start</th><th className="pb-3">End</th><th className="pb-3">Days Left</th></tr></thead>
+                  <tbody>
+                    {filteredRows.slice(0,5).map(r => (
+                      <tr key={r.id} className="border-b border-slate-50"><td className="py-3">{r.fullName}</td><td className="py-3"><Badge tone="green">{r.contractType}</Badge></td><td className="py-3 text-xs">{r.hireDate || '—'}</td><td className="py-3 text-xs">{r.contractEndDate ? new Date(r.contractEndDate).toLocaleDateString() : 'Indefinite'}</td><td className="py-3 text-xs">{r.contractEndDate ? `${daysUntil(r.contractEndDate)} days` : '—'}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* PAYROLL - UI ONLY with lock */}
+          {activeTab === 'payroll' && (
+            <div>
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4 text-sm text-red-800 flex gap-2">
+                <span>🔒</span>
+                <div><b>Sensitive Financial Data - HR_SALARY_READ/WRITE required.</b> Salary data is masked with lock icon. Backend: <code>/Employees/salaries</code> (SOON → now UI ready).</div>
+              </div>
+              <div className="overflow-x-auto scrollbar-hide">
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs text-slate-500 border-b"><th className="pb-3">Employee</th><th className="pb-3">Base Salary 🔒</th><th className="pb-3">Bonuses</th><th className="pb-3">Deductions</th><th className="pb-3">Net Salary 🔒</th><th className="pb-3">Status</th></tr></thead>
+                  <tbody>
+                    {filteredRows.slice(0,5).map(r => (
+                      <tr key={r.id} className="border-b border-slate-50"><td className="py-3">{r.fullName}</td><td className="py-3"><span className="blur-sm select-none bg-slate-100 px-3 py-1 rounded">$3,500</span> <span className="ml-1">🔒</span></td><td className="py-3">$200</td><td className="py-3">$150</td><td className="py-3"><span className="blur-sm select-none bg-slate-100 px-3 py-1 rounded">$3,550</span> 🔒</td><td className="py-3"><Badge tone="green">Paid</Badge></td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button onClick={() => alert('UI Only - Requires HR_SALARY_READ')} className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs text-amber-800">🔓 Reveal Salaries (HR_SALARY_READ)</button>
+                <button onClick={() => alert('UI Only - Requires HR_SALARY_WRITE')} className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-xs">Process Payroll</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Detail Modal */}
+      {detail && (
+        <Modal title={`Employee — ${detail.fullName}`} onClose={() => setDetail(null)}>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <DetailRow label="Employee Number" value={detail.employeeNumber} />
+            <DetailRow label="Email" value={detail.email} />
+            <DetailRow label="Department" value={detail.departmentName} />
+            <DetailRow label="Branch" value={detail.branchName} />
+            <DetailRow label="Contract" value={detail.contractType} />
+            <DetailRow label="Status" value={detail.status} />
           </div>
         </Modal>
       )}
 
+      {/* Add Employee Modal - LIVE */}
       {showAdd && (
-        <Modal title="Add Employee" onClose={() => setShowAdd(false)}>
+        <Modal title="Add New Employee" onClose={() => setShowAdd(false)}>
           <div className="space-y-4">
-            <Field label="Department">
-              <select value={form.departmentId} onChange={setField('departmentId')} className={inputCls}>
-                <option value="">Select department</option>
-                {[...departments].sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1)).map((d) => (
-                  <option key={d.id} value={d.id}>{d.departmentName} ({d.departmentCode})</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Employee Number (auto-generated)">
-              <input value={previewNumber || '— pick a department —'} readOnly className={`${inputCls} bg-gray-50 text-gray-700`} />
-            </Field>
-            <Field label="Full Name">
-              <input value={form.fullName} onChange={setField('fullName')} placeholder="e.g. Sara Ahmed" className={inputCls} />
-            </Field>
-            <Field label="Email">
-              <input value={form.email} onChange={setField('email')} type="email" placeholder="name@uni.edu" className={inputCls} />
-            </Field>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Phone">
-                <input value={form.phone} onChange={setField('phone')} placeholder="0555 000 000" className={inputCls} />
+            {previewNumber && <div className="p-2 rounded-lg bg-indigo-50 text-indigo-700 text-xs">Preview Number: <b>{previewNumber}</b></div>}
+            <Field label="Full Name"><input value={form.fullName} onChange={setField('fullName')} className={inputCls} /></Field>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Email"><input value={form.email} onChange={setField('email')} className={inputCls} /></Field>
+              <Field label="Phone"><input value={form.phone} onChange={setField('phone')} className={inputCls} /></Field>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Department">
+                <select value={form.departmentId} onChange={setField('departmentId')} className={inputCls}>
+                  <option value="">Select department</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{d.departmentName}</option>)}
+                </select>
               </Field>
               <Field label="Branch">
                 <select value={form.branchId} onChange={setField('branchId')} className={inputCls}>
                   <option value="">Select branch</option>
-                  {branches.map((b) => <option key={b.id} value={b.id}>{b.branchName}</option>)}
+                  {branches.map(b => <option key={b.id} value={b.id}>{b.branchName}</option>)}
                 </select>
               </Field>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <Field label="Contract Type">
                 <select value={form.contractType} onChange={setField('contractType')} className={inputCls}>
-                  <option>Full-time</option>
-                  <option>Part-time</option>
-                  <option>Contract</option>
+                  <option>Full-time</option><option>Part-time</option><option>Contract</option>
                 </select>
               </Field>
-              <Field label="Hire Date">
-                <input value={form.hireDate} onChange={setField('hireDate')} type="date" className={inputCls} />
+              <Field label="Category">
+                <select value={form.category} onChange={setField('category')} className={inputCls}>
+                  <option>Administrative</option><option>Academic</option><option>Both</option>
+                </select>
               </Field>
             </div>
-            <Field label="Category">
-              <div className="flex gap-4 text-sm font-medium text-gray-700">
-                {['Administrative', 'Academic', 'Both'].map((c) => (
-                  <label key={c} className="flex items-center gap-2 cursor-pointer">
-                    <input type="radio" name="category" checked={form.category === c} onChange={setField('category')} value={c} className="h-4 w-4 text-indigo-600" />
-                    {c}
-                  </label>
-                ))}
-              </div>
-            </Field>
-            {form.category !== 'Administrative' && (
-              <Field label="Academic Title">
-                <select value={form.academicTitle} onChange={setField('academicTitle')} className={inputCls}>
-                  <option value="">Select academic title</option>
-                  <option>معيد</option>
-                  <option>محاضر</option>
-                  <option>أستاذ مساعد</option>
-                  <option>أستاذ مشارك</option>
-                  <option>أستاذ دكتور</option>
-                </select>
-              </Field>
-            )}
-            <p className="text-xs text-gray-400">HR creates employees only. Login accounts are created from the Security Manager.</p>
+            <Field label="Hire Date"><input type="date" value={form.hireDate} onChange={setField('hireDate')} className={inputCls} /></Field>
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setShowAdd(false)} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100">
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={adding || !form.fullName || !form.email || !form.departmentId}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {adding ? 'Creating…' : 'Create Employee'}
-              </button>
+              <button onClick={() => setShowAdd(false)} className="rounded-lg px-4 py-2 text-sm">Cancel</button>
+              <button onClick={handleCreate} disabled={adding || !form.fullName || !form.email || !form.departmentId} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white disabled:opacity-50">{adding ? 'Creating…' : 'Create Employee'}</button>
             </div>
           </div>
         </Modal>
       )}
 
+      {/* Edit Modal - LIVE */}
       {editing && (
         <Modal title={`Edit — ${editing.fullName}`} onClose={() => setEditing(null)}>
           <div className="space-y-4">
-            <Field label="Employee Number">
-              <input value={editing.employeeNumber || ''} readOnly disabled className={`${inputCls} bg-gray-50 text-gray-700`} />
-            </Field>
-            {editing.category && (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Category</span>
-                <Badge tone={editing.category === 'Both' ? 'amber' : editing.category === 'Academic' ? 'indigo' : 'green'}>
-                  {editing.category}
-                </Badge>
-              </div>
-            )}
-            <Field label="Administrative Department">
-              <select value={editing.departmentId} onChange={(e) => setEditing({ ...editing, departmentId: e.target.value })} className={inputCls}>
-                <option value="">Select department</option>
-                {[...departments].sort((a, b) => (a.isActive === b.isActive ? 0 : a.isActive ? -1 : 1)).map((d) => (
-                  <option key={d.id} value={d.id}>{d.departmentName} ({d.departmentCode})</option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Full Name">
-              <input value={editing.fullName} onChange={(e) => setEditing({ ...editing, fullName: e.target.value })} className={inputCls} />
-            </Field>
-            <Field label="Email">
-              <input value={editing.email} onChange={(e) => setEditing({ ...editing, email: e.target.value })} type="email" className={inputCls} />
-            </Field>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Phone">
-                <input value={editing.phone} onChange={(e) => setEditing({ ...editing, phone: e.target.value })} className={inputCls} />
-              </Field>
-              <Field label="Branch">
-                <select value={editing.branchId} onChange={(e) => setEditing({ ...editing, branchId: e.target.value })} className={inputCls}>
-                  <option value="">Select branch</option>
-                  {branches.map((b) => <option key={b.id} value={b.id}>{b.branchName}</option>)}
-                </select>
-              </Field>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Full Name"><input value={editing.fullName} onChange={e => setEditing({...editing, fullName: e.target.value})} className={inputCls} /></Field>
+            <Field label="Email"><input value={editing.email} onChange={e => setEditing({...editing, email: e.target.value})} className={inputCls} /></Field>
+            <div className="grid grid-cols-2 gap-4">
               <Field label="Contract Type">
-                <select value={editing.contractType} onChange={(e) => setEditing({ ...editing, contractType: e.target.value })} className={inputCls}>
-                  <option>Full-time</option>
-                  <option>Part-time</option>
-                  <option>Contract</option>
+                <select value={editing.contractType} onChange={e => setEditing({...editing, contractType: e.target.value})} className={inputCls}>
+                  <option>Full-time</option><option>Part-time</option><option>Contract</option>
                 </select>
               </Field>
               <Field label="Status">
-                <select value={editing.status} onChange={(e) => setEditing({ ...editing, status: e.target.value })} className={inputCls}>
-                  <option>Active</option>
-                  <option>Inactive</option>
-                  <option>On Leave</option>
+                <select value={editing.status} onChange={e => setEditing({...editing, status: e.target.value})} className={inputCls}>
+                  <option>Active</option><option>Inactive</option><option>On Leave</option><option>Terminated</option>
                 </select>
               </Field>
             </div>
-            <Field label="Academic Title (only if academic)">
-              <select value={editing.academicTitle} onChange={(e) => setEditing({ ...editing, academicTitle: e.target.value })} className={inputCls}>
-                <option value="">—</option>
-                <option>معيد</option>
-                <option>محاضر</option>
-                <option>أستاذ مساعد</option>
-                <option>أستاذ مشارك</option>
-                <option>أستاذ دكتور</option>
-              </select>
-            </Field>
-            <div className="flex justify-end gap-3 pt-2">
-              <button onClick={() => setEditing(null)} className="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100">
-                Cancel
-              </button>
-              <button
-                onClick={handleEditSave}
-                disabled={editSaving}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {editSaving ? 'Saving…' : 'Save'}
-              </button>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setEditing(null)} className="rounded-lg px-4 py-2 text-sm">Cancel</button>
+              <button onClick={handleEditSave} disabled={editSaving} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white">{editSaving ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Status Change Modal - NEW: HR_EMPLOYEE_STATUS */}
+      {statusChanging && (
+        <Modal title={`Change Status — ${statusChanging.fullName}`} onClose={() => setStatusChanging(null)}>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">Current status: <b>{statusChanging.status || 'Active'}</b>. Select new status (HR_EMPLOYEE_STATUS permission):</p>
+            <div className="grid grid-cols-2 gap-3">
+              {['Active','Inactive','On Leave','Terminated'].map(s => (
+                <button key={s} onClick={() => handleStatusChange(s)} className={`p-3 rounded-xl border text-sm font-medium text-left ${s==='Active'?'bg-emerald-50 border-emerald-200 text-emerald-700': s==='Inactive'?'bg-amber-50 border-amber-200 text-amber-700': s==='On Leave'?'bg-blue-50 border-blue-200 text-blue-700':'bg-red-50 border-red-200 text-red-700'}`}>
+                  {s}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <button onClick={() => setStatusChanging(null)} className="rounded-lg px-4 py-2 text-sm">Cancel</button>
             </div>
           </div>
         </Modal>

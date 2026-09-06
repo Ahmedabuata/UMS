@@ -1,0 +1,63 @@
+services:
+  ums-db:
+    image: postgres:15-alpine
+    container_name: ums-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ums_db
+      POSTGRES_USER: ums_user
+      POSTGRES_PASSWORD: Ums_Pass_2024!
+    ports:
+      - "5432:5432"
+    volumes:
+      - ums_pgdata:/var/lib/postgresql/data
+      - ./database/init-default.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ums_user -d ums_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ums-redis:
+    image: redis:7-alpine
+    container_name: ums-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  ums-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: ums-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ConnectionStrings__DefaultConnection: "Host=ums-db;Port=5432;Database=ums_db;Username=ums_user;Password=Ums_Pass_2024!"
+      ConnectionStrings__Redis: "ums-redis:6379"
+      JWT__Key: "SuperSecretKeyForUMSProject2024!@#1234567890LongEnough"
+      JWT__Issuer: "UMS.API"
+      JWT__Audience: "UMS.Client"
+      JWT__ExpiryMinutes: "60"
+    ports:
+      - "8080:8080"
+    depends_on:
+      ums-db:
+        condition: service_healthy
+      ums-redis:
+        condition: service_started
+
+  ums-pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ums-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ums.com
+      PGADMIN_DEFAULT_PASSWORD: Admin@123
+    ports:
+      - "5050:80"
+    depends_on:
+      - ums-db
+
+volumes:
+  ums_pgdata:
