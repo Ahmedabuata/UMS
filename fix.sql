@@ -1,1 +1,0 @@
-UPDATE users SET password_hash = '$2b$12$jwhNVQpX2lzc7XRGthTE2eLunKXFyoetAq4wOmaipWE8lvbd0Ao.y', must_change_password = false, is_active = true;
