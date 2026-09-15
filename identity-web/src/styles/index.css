@@ -1,0 +1,15 @@
+@import './themes/blue/theme.css';
+@import './themes/dark/theme.css';
+@import './themes/green/theme.css';
+@import './themes/light/theme.css';
+@import './themes/olive/theme.css';
+@import './themes/orange/theme.css';
+@import './themes/purple/theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body { background: var(--bg-primary); color: var(--text-main); }
+}

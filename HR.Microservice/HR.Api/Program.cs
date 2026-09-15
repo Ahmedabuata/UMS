@@ -11,116 +11,195 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Swagger مع زر Authorize
-builder.Services.AddSwaggerGen(c => {
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme {
-        Description = "Paste JWT from ums-api (Bearer token)",
+// ============================================================
+// Swagger with Bearer Authorization
+// ============================================================
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Paste JWT from Identity.Microservice (Bearer token)",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement {
-        { new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" } }, Array.Empty<string>() }
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
     });
 });
 
-// === CORS - هذا هو سبب خطأ 5173 -> 5000 ===
-builder.Services.AddCors(o => o.AddPolicy("AllowFrontend", p => 
+// ============================================================
+// CORS - Frontend
+// ============================================================
+builder.Services.AddCors(o => o.AddPolicy("AllowFrontend", p =>
     p.WithOrigins("http://localhost:5173", "https://localhost:5173")
      .AllowAnyHeader()
      .AllowAnyMethod()
      .AllowCredentials()));
 
-// === Database ===
-var conn = builder.Configuration.GetConnectionString("HrConnection") 
-           ?? builder.Configuration.GetConnectionString("HRDatabase")
-           ?? "Host=localhost;Port=5432;Database=hr_microservice_db;Username=postgres;Password=postgres";
+// ============================================================
+// Database Connection
+// Reads from User Secrets (dev) or Environment Variables (prod)
+// ============================================================
+var conn = builder.Configuration.GetConnectionString("HrConnection")
+        ?? builder.Configuration.GetConnectionString("HRDatabase")
+        ?? builder.Configuration["ConnectionStrings:HrConnection"];
+
+if (string.IsNullOrWhiteSpace(conn))
+{
+    throw new InvalidOperationException(
+        "Database connection string 'HrConnection' is not configured. " +
+        "For development: dotnet user-secrets set \"ConnectionStrings:HrConnection\" \"Host=...\". " +
+        "For production: set environment variable ConnectionStrings__HrConnection."
+    );
+}
 
 builder.Services.AddDbContext<HrDbContext>(o => o.UseNpgsql(conn));
 
-// === CAP - اجعله اختياري إذا RabbitMQ غير موجود ===
+// ============================================================
+// CAP (Event Bus) - RabbitMQ
+// Reads from User Secrets (dev) or Environment Variables (prod)
+// ============================================================
 builder.Services.AddCap(o =>
 {
     o.UseEntityFramework<HrDbContext>();
-    try {
-        o.UseRabbitMQ(r => { 
-            r.HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost"; 
-            r.Port = 5672; r.UserName = "guest"; r.Password = "guest";
+
+    try
+    {
+        o.UseRabbitMQ(r =>
+        {
+            r.HostName = builder.Configuration["RabbitMQ:Host"] ?? "localhost";
+            r.Port = int.TryParse(builder.Configuration["RabbitMQ:Port"], out var port) ? port : 5672;
+            r.UserName = builder.Configuration["RabbitMQ:UserName"] ?? "guest";
+            r.Password = builder.Configuration["RabbitMQ:Password"] ?? "guest";
             r.ConnectionFactoryOptions = opt => opt.AutomaticRecoveryEnabled = true;
         });
-    } catch { /* ignore if RabbitMQ down */ }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[HR.Api] CAP RabbitMQ setup skipped: {ex.Message}");
+    }
+
     o.FailedRetryCount = 5;
     o.DefaultGroupName = "hr.microservice";
 });
 
-// === JWT - يجب أن يكون نفس Key في ums-api ===
-var jwtKey = builder.Configuration["JWT:Key"] 
-          ?? builder.Configuration["Jwt:Key"] 
-          ?? "YOUR_UMS_API_KEY_MUST_MATCH_32_CHARS_MIN"; // ضع هنا نفس Key الموجود في ums-api/appsettings.json
+// ============================================================
+// JWT Authentication
+// Reads from User Secrets (dev) or Environment Variables (prod)
+// MUST be the same key as Identity.Microservice
+// ============================================================
+var jwtKey = builder.Configuration["JWT:Key"]
+          ?? builder.Configuration["Jwt:Key"];
 
-Console.WriteLine($"[HR.Api] Using JWT Key: {jwtKey.Substring(0,10)}...");
+if (string.IsNullOrWhiteSpace(jwtKey))
+{
+    throw new InvalidOperationException(
+        "JWT:Key is not configured. " +
+        "For development: dotnet user-secrets set \"JWT:Key\" \"YourKeyHere\". " +
+        "For production: set environment variable JWT__Key."
+    );
+}
+
+if (jwtKey.Length < 32)
+{
+    throw new InvalidOperationException(
+        $"JWT:Key must be at least 32 characters. Current length: {jwtKey.Length}"
+    );
+}
+
+Console.WriteLine($"[HR.Api] Using JWT Key: {jwtKey.Substring(0, 10)}... (length: {jwtKey.Length})");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-.AddJwtBearer(o =>
-{
-    o.RequireHttpsMetadata = false;
-    o.SaveToken = true;
-    o.TokenValidationParameters = new TokenValidationParameters
+    .AddJwtBearer(o =>
     {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
-        ValidateIssuer = false, // للـ Microservice فصلنا
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero,
-        NameClaimType = "name",
-        RoleClaimType = "role"
-    };
-    // لمعرفة سبب 401
-    o.Events = new JwtBearerEvents {
-        OnAuthenticationFailed = ctx => {
-            Console.WriteLine($"JWT Auth Failed: {ctx.Exception.Message}");
-            return Task.CompletedTask;
-        },
-        OnTokenValidated = ctx => {
-            Console.WriteLine($"JWT Validated for: {ctx.Principal?.Identity?.Name}");
-            return Task.CompletedTask;
-        }
-    };
-});
+        o.RequireHttpsMetadata = false;
+        o.SaveToken = true;
+        o.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,
+            NameClaimType = "name",
+            RoleClaimType = "role"
+        };
 
+        // Debug events for 401 issues
+        o.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = ctx =>
+            {
+                Console.WriteLine($"[HR.Api] JWT Auth Failed: {ctx.Exception.Message}");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = ctx =>
+            {
+                Console.WriteLine($"[HR.Api] JWT Validated for: {ctx.Principal?.Identity?.Name}");
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+// ============================================================
+// Authorization Policies
+// ============================================================
 builder.Services.AddAuthorization(o =>
 {
-    o.AddPolicy("HR_EMPLOYEE_READ", p => p.RequireAssertion(ctx => 
-        ctx.User.HasClaim(c => c.Value.Contains("HR_EMPLOYEE_READ")) || 
+    o.AddPolicy("HR_EMPLOYEE_READ", p => p.RequireAssertion(ctx =>
+        ctx.User.HasClaim(c => c.Value.Contains("HR_EMPLOYEE_READ")) ||
         ctx.User.HasClaim(c => c.Value.Contains("SUPER_ADMIN"))));
-    o.AddPolicy("HR_EMPLOYEE_WRITE", p => p.RequireAssertion(ctx => 
-        ctx.User.HasClaim(c => c.Value.Contains("HR_EMPLOYEE_WRITE")) || 
+
+    o.AddPolicy("HR_EMPLOYEE_WRITE", p => p.RequireAssertion(ctx =>
+        ctx.User.HasClaim(c => c.Value.Contains("HR_EMPLOYEE_WRITE")) ||
         ctx.User.HasClaim(c => c.Value.Contains("SUPER_ADMIN"))));
+
     o.AddPolicy("SUPER_ADMIN", p => p.RequireClaim("permissions", "SUPER_ADMIN"));
 });
 
+// ============================================================
+// Build App
+// ============================================================
 var app = builder.Build();
 
-app.UseSwagger(); 
+app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCors("AllowFrontend"); // <-- مهم جداً قبل Authentication
+app.UseCors("AllowFrontend");
 
-app.UseAuthentication(); 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// Migration
-using (var scope = app.Services.CreateScope()) { 
-    try {
+// ============================================================
+// Auto-Migrate Database
+// ============================================================
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
         var db = scope.ServiceProvider.GetRequiredService<HrDbContext>();
         db.Database.Migrate();
-        Console.WriteLine("HR DB migrated successfully to hr_microservice_db");
-    } catch(Exception ex) {
-        Console.WriteLine($"Migration failed: {ex.Message}");
+        Console.WriteLine("[HR.Api] HR DB migrated successfully");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[HR.Api] Migration failed: {ex.Message}");
     }
 }
 
