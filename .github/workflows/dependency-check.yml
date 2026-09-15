@@ -1,0 +1,72 @@
+name: Dependency Vulnerability Check
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+jobs:
+  dotnet-check:
+    name: .NET Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Check Identity.Api
+        run: |
+          dotnet restore ./Identity.Microservice/src/Identity.Api
+          dotnet list ./Identity.Microservice/src/Identity.Api package --vulnerable --include-transitive
+
+      - name: Check HR.Api
+        run: |
+          dotnet restore ./HR.Microservice/HR.Api
+          dotnet list ./HR.Microservice/HR.Api package --vulnerable --include-transitive
+
+  npm-check:
+    name: NPM Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: NPM Audit
+        run: |
+          cd identity-web
+          npm ci
+          npm audit --audit-level=moderate
+        continue-on-error: true
+
+  trivy-fs:
+    name: Trivy Filesystem Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
