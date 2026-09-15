@@ -1,0 +1,235 @@
+# ============================================================
+# Identity.Api — .gitignore
+# Author: Ahmed Almahallawi
+# Last Update: 2026-09-15
+# ============================================================
+
+# ============================================================
+# 1. SECRETS & SENSITIVE FILES (CRITICAL)
+# ============================================================
+
+# App settings with real secrets — keep only base appsettings.json
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.Local.json
+appsettings.Docker.json
+appsettings.Testing.json
+appsettings.*.local.json
+appsettings.*.Local.json
+appsettings.*.Development.json
+appsettings.*.Production.json
+appsettings.*.Staging.json
+appsettings.*.Docker.json
+
+# User Secrets (managed by dotnet)
+secrets.json
+*secrets*.json
+user-secrets.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.example
+!.env.template
+
+# Certificates & Cryptographic keys
+*.pfx
+*.p12
+*.key
+*.pem
+*.crt
+*.cer
+*.der
+*.snk
+*.jks
+*.keystore
+!*.pub
+
+# Cloud credentials
+*.pubxml
+*.publishproj
+*.publishsettings
+PublishScripts/
+.aws/
+.azure/
+.gcloud/
+kubeconfig
+*.kubeconfig
+
+# Package manager auth tokens
+.npmrc
+.yarnrc
+.yarnrc.yml
+
+# ============================================================
+# 2. BUILD OUTPUTS
+# ============================================================
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+[Dd]ebugPublic/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+artifacts/
+*.dll
+*.exe
+*.pdb
+*.cache
+
+# .NET specific
+project.lock.json
+project.fragment.lock.json
+*.user
+*.suo
+*.rsuser
+*.userosscache
+*.sln.docstates
+*.userprefs
+mono_crash.*
+
+# ============================================================
+# 3. IDE & TOOLS
+# ============================================================
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.idea/
+*.sln.iml
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Rider
+.idea/
+*.idea/
+
+# ============================================================
+# 4. LOGS
+# ============================================================
+[Ll]og/
+[Ll]ogs/
+logs/
+*.log
+!*.log.template
+*.tlog
+*.svclog
+*.binlog
+
+# ============================================================
+# 5. TEST & COVERAGE
+# ============================================================
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+*.dotCover
+.axoCover/*
+!.axoCover/settings.json
+OpenCover/
+[Cc]overage*/
+
+# ============================================================
+# 6. DEVSECOPS ARTIFACTS
+# ============================================================
+*.sarif
+trivy-*.json
+trivy-*.sarif
+sbom-*.json
+sbom-*.xml
+checkov*.json
+checkov*.sarif
+zap-report*.html
+zap-report*.json
+grype-*.json
+snyk-*.json
+gitleaks-report*
+
+# ============================================================
+# 7. DATABASE FILES
+# ============================================================
+*.mdf
+*.ldf
+*.ndf
+*.db
+*.sqlite
+*.sqlite3
+*.db-shm
+*.db-wal
+
+# ============================================================
+# 8. BACKUPS & TEMP
+# ============================================================
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+Backup*/
+*backup*/
+temp/
+tmp/
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# ============================================================
+# 9. OS-SPECIFIC
+# ============================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ============================================================
+# 10. MISC
+# ============================================================
+ClientBin/
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+orleans.codegen.cs
+MigrationBackup/
+FodyWeavers.xsd
+.sass-cache/
+[Ee]xpress/
+publish/

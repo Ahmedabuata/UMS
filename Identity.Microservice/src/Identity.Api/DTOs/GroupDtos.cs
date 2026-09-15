@@ -2,7 +2,7 @@ namespace Identity.Api.DTOs;
 
 public record CreateGroupRequest(
     string Name,
-    string? DisplayName = null,
+    string DisplayName,
     string? Description = null,
     string? BranchCode = null
 )
@@ -24,10 +24,10 @@ public record UpdateGroupRequest(
 public record GroupDto(
     Guid Id,
     string Name,
-    string? DisplayName = null,
-    string? Description = null,
-    string? BranchCode = null,
-    bool IsActive = true,
-    DateTime CreatedAt = default,
-    DateTime UpdatedAt = default
+    string DisplayName,
+    string? Description,
+    string? BranchCode,
+    bool IsActive,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
 );

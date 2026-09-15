@@ -1,5 +1,16 @@
 namespace Identity.Api.DTOs;
 
+
+// ============================================================
+//  PATCH PERMISSION STATUS REQUEST
+// ============================================================
+/// <summary>
+/// Request for quick activate/deactivate of a permission.
+/// 
+/// Used by PATCH /api/permissions/{id}/status
+/// </summary>
+public record PatchPermissionStatusRequest(bool IsActive);
+public record PatchPermissionSensitivityRequest(bool IsSensitive);
 public record CreatePermissionRequest(
     string PermissionName,
     string? Description,
