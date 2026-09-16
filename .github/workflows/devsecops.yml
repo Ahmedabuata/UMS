@@ -29,6 +29,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   # ============================================
   # 2. INFRASTRUCTURE AS CODE SCANNING (Trivy Config)
@@ -74,16 +75,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Verify Dockerfile exists
-        working-directory: ./Identity.Microservice/src/Identity.Api
-        run: |
-          echo "=== Current directory ==="
-          pwd
-          echo "=== Files in directory ==="
-          ls -la
-          echo "=== Dockerfile content (first 20 lines) ==="
-          head -20 Dockerfile
 
       - name: Build Identity.Api Docker Image
         working-directory: ./Identity.Microservice/src/Identity.Api
