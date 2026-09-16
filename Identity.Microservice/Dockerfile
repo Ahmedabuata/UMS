@@ -53,8 +53,8 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-# Health check للتأكد من أن التطبيق يعمل
+# Health check للتأكد من أن التطبيق يعمل (يستخدم wget لأن curl غير متوفر)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["dotnet", "Identity.Api.dll"]
