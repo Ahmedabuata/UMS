@@ -29,7 +29,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   # ============================================
   # 2. INFRASTRUCTURE AS CODE SCANNING (Trivy Config)
@@ -79,8 +78,8 @@ jobs:
       - name: Build Identity.Api Docker Image
         run: |
           docker build -t ums-identity-api:scan \
-            -f ./Identity.Microservice/src/Identity.Api/Dockerfile \
-            ./Identity.Microservice/src/Identity.Api
+            -f ./Identity.Microservice/Dockerfile \
+            ./Identity.Microservice
 
       - name: Run Trivy Image Scanner (Identity.Api)
         uses: aquasecurity/trivy-action@master
