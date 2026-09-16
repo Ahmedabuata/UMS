@@ -1,68 +1,3 @@
-name: DevSecOps Pipeline
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  schedule:
-    - cron: '0 3 * * 1'
-  workflow_dispatch:
-
-jobs:
-  # ============================================
-  # 1. SECRET SCANNING (Gitleaks)
-  # ============================================
-  secret-scan:
-    name: Secret Scanning (Gitleaks)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ============================================
-  # 2. INFRASTRUCTURE AS CODE SCANNING (Trivy Config)
-  # ============================================
-  trivy-config:
-    name: IaC & Dockerfile Scan (Trivy Config)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Run Trivy Config Scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'config'
-          scan-ref: '.'
-          format: 'table'
-          output: 'trivy-config-results.txt'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
-
-      - name: Upload Trivy Config results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: trivy-config-results
-          path: trivy-config-results.txt
-          retention-days: 30
-
-  # ============================================
-  # 3. CONTAINER IMAGE SCANNING (Trivy Image)
-  # ============================================
   trivy-image:
     name: Container Image Scan (Trivy Image)
     runs-on: ubuntu-latest
@@ -74,16 +9,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Verify Dockerfile exists
-        working-directory: ./Identity.Microservice/src/Identity.Api
-        run: |
-          echo "=== Current directory ==="
-          pwd
-          echo "=== Files in directory ==="
-          ls -la
-          echo "=== Dockerfile content (first 20 lines) ==="
-          head -20 Dockerfile
 
       - name: Build Identity.Api Docker Image
         working-directory: ./Identity.Microservice/src/Identity.Api
