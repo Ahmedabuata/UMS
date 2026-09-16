@@ -78,8 +78,8 @@ jobs:
       - name: Build Identity.Api Docker Image
         run: |
           docker build -t ums-identity-api:scan \
-            -f ./Identity.Microservice/Dockerfile \
-            ./Identity.Microservice
+            -f ./Identity.Microservice/src/Identity.Api/Dockerfile \
+            ./Identity.Microservice/src/Identity.Api
 
       - name: Run Trivy Image Scanner (Identity.Api)
         uses: aquasecurity/trivy-action@master
