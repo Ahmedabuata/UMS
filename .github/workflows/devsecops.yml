@@ -75,11 +75,20 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Identity.Api Docker Image
+      - name: Verify Dockerfile exists
+        working-directory: ./Identity.Microservice/src/Identity.Api
         run: |
-          docker build -t ums-identity-api:scan \
-            -f ./Identity.Microservice/src/Identity.Api/Dockerfile \
-            ./Identity.Microservice/src/Identity.Api
+          echo "=== Current directory ==="
+          pwd
+          echo "=== Files in directory ==="
+          ls -la
+          echo "=== Dockerfile content (first 20 lines) ==="
+          head -20 Dockerfile
+
+      - name: Build Identity.Api Docker Image
+        working-directory: ./Identity.Microservice/src/Identity.Api
+        run: |
+          docker build -t ums-identity-api:scan .
 
       - name: Run Trivy Image Scanner (Identity.Api)
         uses: aquasecurity/trivy-action@master
