@@ -19,7 +19,7 @@
 
     <!-- PostgreSQL -->
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
-    <PackageReference Include="Npgsql" Version="8.0.4" />
+    <PackageReference Include="Npgsql" Version="8.0.9" />
 
     <!-- CAP 8 -->
     <PackageReference Include="DotNetCore.CAP" Version="8.1.0" />

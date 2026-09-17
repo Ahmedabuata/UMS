@@ -22,7 +22,7 @@
 
     <!-- PostgreSQL -->
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
-    <PackageReference Include="Npgsql" Version="8.0.4" />
+    <PackageReference Include="Npgsql" Version="8.0.9" />
 
     <!-- JSON -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
