@@ -27,7 +27,7 @@
 
     <!-- Authentication & JSON -->
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
 
     <!-- FluentValidation (متوافق مع .NET 8) -->
