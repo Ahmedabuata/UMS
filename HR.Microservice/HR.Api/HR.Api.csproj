@@ -1,4 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -7,21 +8,21 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- ASP.NET Core (متوافق مع .NET 8) -->
+    <!-- ASP.NET Core -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.31" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
 
-    <!-- Entity Framework Core (متوافق مع .NET 8) -->
+    <!-- Entity Framework Core 8 -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
       <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <IncludeAssets>
+        runtime; build; native; contentfiles; analyzers; buildtransitive
+      </IncludeAssets>
     </PackageReference>
+
+    <!-- PostgreSQL -->
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
     <PackageReference Include="Npgsql" Version="8.0.4" />
-
-    <!-- Microsoft Extensions (متوافق مع .NET 8) -->
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
 
     <!-- JSON -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
@@ -32,4 +33,5 @@
     <ProjectReference Include="..\HR.Infrastructure\HR.Infrastructure.csproj" />
     <ProjectReference Include="..\HR.Shared\HR.Shared.csproj" />
   </ItemGroup>
+
 </Project>
