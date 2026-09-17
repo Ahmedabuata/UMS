@@ -5,18 +5,28 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>022a5eb7-b1f4-4a39-817b-351504292ed6</UserSecretsId>
   </PropertyGroup>
+
   <ItemGroup>
+    <!-- ASP.NET Core (متوافق مع .NET 8) -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.31" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+
+    <!-- Entity Framework Core (متوافق مع .NET 8) -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
     <PackageReference Include="Npgsql" Version="8.0.4" />
+
+    <!-- Microsoft Extensions (متوافق مع .NET 8) -->
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+
+    <!-- JSON -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\HR.Domain\HR.Domain.csproj" />
     <ProjectReference Include="..\HR.Infrastructure\HR.Infrastructure.csproj" />
