@@ -82,7 +82,11 @@
     "registerSuccess": "تم إنشاء الحساب بنجاح!",
     "errorRegister": "فشل إنشاء الحساب",
     "loginSuccess": "تم تسجيل الدخول بنجاح",
-    "errorLogin": "فشل تسجيل الدخول"
+    "errorLogin": "فشل تسجيل الدخول",
+    "sessionExpired": "انتهت الجلسة",
+    "sessionExpiredDetail": "تم تسجيل خروجك تلقائياً لعدم وجود نشاط وذلك لدواعي أمنية.",
+    "sessionExpiringWarning": "وشكت الجلسة على الانتهاء بسبب الخمول. هل تريد البقاء متصلاً؟",
+    "stayLoggedIn": "البقاء متصلاً"
   },
   "dashboard": {
     "welcome": "مرحباً بك في إدارة الهوية والتوثيق",
@@ -219,7 +223,7 @@
     "title": "الصلاحيات",
     "subtitle": "عرض صلاحيات النظام",
     "searchPlaceholder": "البحث في الصلاحيات...",
-	"deactivateSuccessWithLogout": "تم تعطيل الصلاحية. قد تحتاج إلى إعادة تسجيل الدخول.",
+    "deactivateSuccessWithLogout": "تم تعطيل الصلاحية. قد تحتاج إلى إعادة تسجيل الدخول.",
     "module": "الوحدة",
     "permission": "الصلاحية",
     "name": "الاسم البرمجي",
@@ -314,11 +318,14 @@
       "phone": "رقم الهاتف"
     },
     "security": {
-      "title": "تغيير كلمة المرور",
+      "title": "إعدادات الأمان وتغيير كلمة المرور",
       "currentPassword": "كلمة المرور الحالية",
       "newPassword": "كلمة المرور الجديدة",
       "confirmPassword": "تأكيد كلمة المرور الجديدة",
-      "changePassword": "تغيير كلمة المرور"
+      "changePassword": "تغيير كلمة المرور",
+      "sessionTimeout": "مهلة انتهاء الجلسة",
+      "sessionTimeoutHint": "تسجيل الخروج تلقائياً بعد فترة من الخمول لحماية حسابك.",
+      "timeoutMinutes": "مدة الخمول قبل الخروج (بالدقائق)"
     },
     "preferences": {
       "title": "التفضيلات",
