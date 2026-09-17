@@ -22,13 +22,13 @@
     <PackageReference Include="Npgsql" Version="8.0.6" />
 
     <!-- CAP 8 -->
-    <PackageReference Include="DotNetCore.CAP" Version="8.1.0" />
-    <PackageReference Include="DotNetCore.CAP.RabbitMQ" Version="8.1.0" />
+    <PackageReference Include="DotNetCore.CAP" Version="8.4.1" />
+    <PackageReference Include="DotNetCore.CAP.RabbitMQ" Version="8.4.1" />
     <PackageReference Include="DotNetCore.CAP.PostgreSql" Version="8.1.0" />
 
     <!-- Microsoft Extensions 8 -->
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.7" />
 
     <!-- JSON -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
