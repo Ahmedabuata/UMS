@@ -1,61 +1,62 @@
-services:
-  # ============================================================
-  # Databases
-  # ============================================================
+# ============================================================
+# UMS IAM — Identity.Api Dockerfile
+# Multi-stage build for .NET 8 (Production-Ready)
+# Author: Ahmed Almahallawi
+# ============================================================
 
-  # ums-db:
-  #   image: postgres:15-alpine
-  #   container_name: ums-db
-  #   environment:
-  #     POSTGRES_DB: ums_db
-  #     POSTGRES_USER: ums_user
-  #     POSTGRES_PASSWORD: ${POSTGRES_UMS_PASSWORD}
-  #   ports:
-  #     - "5432:5432"
-  #   volumes:
-  #     - ums_pgdata:/var/lib/postgresql/data
+# ------------------------------------------------------------
+# STAGE 1: BASE — Runtime only (small, secure)
+# ------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 8080
+EXPOSE 8081
 
-  hr-db:
-    image: postgres:15-alpine
-    container_name: hr-db
-    environment:
-      POSTGRES_DB: hr_microservice_db
-      POSTGRES_USER: ums_user
-      POSTGRES_PASSWORD: ${POSTGRES_HR_PASSWORD}
-    ports:
-      - "5433:5432"
-    volumes:
-      - hr_pgdata:/var/lib/postgresql/data
+# .NET 8+ images include a built-in non-root user 'app' (UID 1654)
+# Do NOT use adduser/useradd — they fail on minimal images
+USER app
 
-  identity-db:
-    image: postgres:15-alpine
-    container_name: identity-db
-    environment:
-      POSTGRES_DB: identity_db
-      POSTGRES_USER: ums_user
-      POSTGRES_PASSWORD: ${POSTGRES_IDENTITY_PASSWORD}
-    ports:
-      - "5434:5432"
-    volumes:
-      - identity_pgdata:/var/lib/postgresql/data
+# ------------------------------------------------------------
+# STAGE 2: BUILD — Full SDK for building
+# ------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+ARG BUILD_CONFIGURATION=Release
+WORKDIR /src
 
+# Copy csproj first to leverage Docker layer cache
+COPY ["Identity.Api.csproj", "./"]
+RUN dotnet restore "./Identity.Api.csproj"
 
-  # ============================================================
-  # Cache and Message Broker
-  # ============================================================
+# Copy remaining files
+COPY . .
+WORKDIR "/src/."
 
-  ums-redis:
-    image: redis:7-alpine
-    container_name: ums-redis
-    ports:
-      - "6379:6379"
+# Build the project
+RUN dotnet build "./Identity.Api.csproj" \
+    -c $BUILD_CONFIGURATION \
+    -o /app/build
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+# ------------------------------------------------------------
+# STAGE 3: PUBLISH
+# ------------------------------------------------------------
+FROM build AS publish
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish "./Identity.Api.csproj" \
+    -c $BUILD_CONFIGURATION \
+    -o /app/publish \
+    /p:UseAppHost=false
+
+# ------------------------------------------------------------
+# STAGE 4: FINAL — Lightweight and secure image
+# ------------------------------------------------------------
+FROM base AS final
+WORKDIR /app
+
+# Ensure app owns the files (using built-in user)
+COPY --from=publish --chown=app:app /app/publish .
+
+# Health check — wget is available in Debian-based images
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["dotnet", "Identity.Api.dll"]
