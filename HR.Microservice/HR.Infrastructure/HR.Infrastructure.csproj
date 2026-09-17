@@ -6,23 +6,24 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Entity Framework Core (متوافق مع .NET 8) -->
+    <!-- Entity Framework Core المتوافق مع .NET 8 -->
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.8" />
+
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
-    <!-- Npgsql (متوافق مع .NET 8) -->
+    <!-- Npgsql المتوافق مع .NET 8 -->
     <PackageReference Include="Npgsql" Version="8.0.4" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.8" />
 
-    <!-- CAP (متوافق مع .NET 8) -->
+    <!-- CAP -->
     <PackageReference Include="DotNetCore.CAP" Version="8.1.0" />
     <PackageReference Include="DotNetCore.CAP.RabbitMQ" Version="8.1.0" />
     <PackageReference Include="DotNetCore.CAP.PostgreSql" Version="8.1.0" />
 
-    <!-- Microsoft Extensions (متوافق مع .NET 8) -->
+    <!-- Microsoft Extensions -->
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
 
