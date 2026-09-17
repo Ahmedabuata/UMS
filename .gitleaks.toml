@@ -1,0 +1,23 @@
+title = "UMS IAM Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+# استثناء الملفات التي تحتوي على Placeholders فقط
+[allowlist]
+description = "Global allowlist for example/template files with placeholders"
+paths = [
+    '''appsettings\.example\.json$''',
+    '''appsettings\.template\.json$''',
+    '''\.env\.example$''',
+    '''\.env\.template$''',
+]
+
+# استثناء القيم التي تحتوي على Placeholders فقط
+regexes = [
+    '''REPLACE_ME''',
+    '''REPLACE_WITH_.*''',
+    '''YOUR_.*_HERE''',
+    '''CHANGE_ME''',
+    '''PLACEHOLDER''',
+]
