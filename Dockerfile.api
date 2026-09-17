@@ -1,35 +1,60 @@
-# UMS API Dockerfile - multi-stage build targeting Linux containers
-# Note: Docker BuildKit is required (docker-compose sets DOCKER_BUILDKIT=1)
+# ============================================================
+# UMS API Dockerfile
+# Multi-stage build for .NET 8 Linux containers
+#
+# Build context must be the repository root.
+# ============================================================
 
-# ---------- Build stage ----------
+
+# ------------------------------------------------------------
+# STAGE 1: Build and publish
+# ------------------------------------------------------------
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
 WORKDIR /src
 
-# Copy project files first to leverage layer caching for restore
-COPY ums-api/University.Shared/University.Shared.csproj ums-api/University.Shared/
-COPY ums-api/University.Core/University.Core.csproj ums-api/University.Core/
-COPY ums-api/University.Application/University.Application.csproj ums-api/University.Application/
-COPY ums-api/University.Infrastructure/University.Infrastructure.csproj ums-api/University.Infrastructure/
-COPY ums-api/University.API/University.API.csproj ums-api/University.API/
+# Copy solution and SDK configuration files
+COPY ["UMS.sln", "./"]
+COPY ["global.json", "./"]
 
-# Restore the solution
-COPY UMS.sln .
-COPY global.json .
-RUN dotnet restore UMS.sln
+# Copy project files first to maximize Docker layer caching
+COPY ["ums-api/University.Shared/University.Shared.csproj", "ums-api/University.Shared/"]
+COPY ["ums-api/University.Core/University.Core.csproj", "ums-api/University.Core/"]
+COPY ["ums-api/University.Application/University.Application.csproj", "ums-api/University.Application/"]
+COPY ["ums-api/University.Infrastructure/University.Infrastructure.csproj", "ums-api/University.Infrastructure/"]
+COPY ["ums-api/University.API/University.API.csproj", "ums-api/University.API/"]
 
-# Copy the rest of the source and publish
+# Restore NuGet packages
+RUN dotnet restore "UMS.sln"
+
+# Copy the remaining source files
 COPY . .
-RUN dotnet publish ums-api/University.API/University.API.csproj -c Release -o /app/publish
 
-# ---------- Runtime stage ----------
+# Build and publish the API
+RUN dotnet publish "ums-api/University.API/University.API.csproj" \
+    --configuration Release \
+    --no-restore \
+    --output /app/publish \
+    /p:UseAppHost=false
+
+
+# ------------------------------------------------------------
+# STAGE 2: Final runtime image
+# ------------------------------------------------------------
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+
 WORKDIR /app
 
-# Select the Docker-specific configuration for containerized connection strings
-ENV ASPNETCORE_ENVIRONMENT=Docker
-ENV ASPNETCORE_URLS=http://+:8080
+# ASP.NET Core configuration inside the container
+ENV ASPNETCORE_ENVIRONMENT=Docker \
+    ASPNETCORE_HTTP_PORTS=8080
 
-COPY --from=build /app/publish .
 EXPOSE 8080
+
+# Official .NET 8 image contains the non-root "app" user
+COPY --from=build --chown=app:app /app/publish .
+
+# Run the application as a non-root user
+USER app
 
 ENTRYPOINT ["dotnet", "University.API.dll"]
