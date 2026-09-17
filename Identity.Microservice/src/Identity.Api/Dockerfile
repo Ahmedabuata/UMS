@@ -1,45 +1,44 @@
 # ============================================================
 # UMS IAM — Identity.Api Dockerfile
-# Multi-stage build for .NET 8 (Production-Ready)
+# Multi-stage build for .NET 10 (Production-Ready)
 # Author: Ahmed Almahallawi
 # ============================================================
 
 # ------------------------------------------------------------
-# STAGE 1: BASE — Runtime only (صغير، آمن)
+# STAGE 1: BASE — Runtime only (small, secure)
 # ------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-# إنشاء مستخدم غير جذري (Non-root user) للأمان
-# نستخدم useradd بدلاً من adduser (لأن .NET 8 images لا تحتوي على adduser)
-RUN useradd --create-home --shell /bin/bash --uid 1000 appuser \
-    && chown -R appuser:appuser /app
-USER appuser
+# .NET 8+ images already include a non-root user 'app' (UID 1654)
+# Do not use useradd/adduser - it fails on minimal/chiseled images
+# Using the built-in user is the official best practice
+USER app
 
 # ------------------------------------------------------------
-# STAGE 2: BUILD — SDK كامل للبناء
+# STAGE 2: BUILD — Full SDK for building
 # ------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# نسخ ملفات المشروع أولاً (للاستفادة من الـ Cache)
+# Copy csproj first to leverage Docker layer cache
 COPY ["Identity.Api.csproj", "./"]
 RUN dotnet restore "./Identity.Api.csproj"
 
-# نسخ باقي الملفات
+# Copy remaining files
 COPY . .
 WORKDIR "/src/."
 
-# بناء المشروع
+# Build the project
 RUN dotnet build "./Identity.Api.csproj" \
     -c $BUILD_CONFIGURATION \
     -o /app/build
 
 # ------------------------------------------------------------
-# STAGE 3: PUBLISH — نشر التطبيق
+# STAGE 3: PUBLISH — Publish the application
 # ------------------------------------------------------------
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
@@ -49,13 +48,14 @@ RUN dotnet publish "./Identity.Api.csproj" \
     /p:UseAppHost=false
 
 # ------------------------------------------------------------
-# STAGE 4: FINAL — الصورة النهائية (خفيفة وآمنة)
+# STAGE 4: FINAL — Final lightweight and secure image
 # ------------------------------------------------------------
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 
-# Health check للتأكد من أن التطبيق يعمل (يستخدم wget لأن curl غير متوفر)
+# Health check to verify the app is running
+# Uses wget because curl is not available in minimal images
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
