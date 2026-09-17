@@ -19,12 +19,12 @@
 
     <!-- PostgreSQL -->
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
-    <PackageReference Include="Npgsql" Version="8.0.6" />
+    <PackageReference Include="Npgsql" Version="9.0.3" />
 
     <!-- CAP 8 -->
     <PackageReference Include="DotNetCore.CAP" Version="8.4.1" />
     <PackageReference Include="DotNetCore.CAP.RabbitMQ" Version="8.4.1" />
-    <PackageReference Include="DotNetCore.CAP.PostgreSql" Version="8.1.0" />
+    <PackageReference Include="DotNetCore.CAP.PostgreSql" Version="8.4.1" />
 
     <!-- Microsoft Extensions 8 -->
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
