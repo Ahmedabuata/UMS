@@ -66,7 +66,8 @@
     "hidePassword": "Hide password",
     "signIn": "Sign In",
     "submitting": "Verifying...",
-    "failedError": "Login failed. Please check your credentials."
+    "failedError": "Login failed. Please check your credentials.",
+    "invalidCredentials": "Invalid username or password or Database not connected"
   },
   "auth": {
     "logout": "Logout",
@@ -219,7 +220,7 @@
     "title": "Permissions",
     "subtitle": "View system permissions",
     "searchPlaceholder": "Search permissions...",
-	  "deactivateSuccessWithLogout": "Permission deactivated. You may need to re-login.",
+    "deactivateSuccessWithLogout": "Permission deactivated. You may need to re-login.",
     "module": "Module",
     "permission": "Permission",
     "name": "Permission Name",

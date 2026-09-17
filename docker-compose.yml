@@ -2,15 +2,15 @@ services:
   # ============================================================
   # Databases
   # ============================================================
-  ums-db:
-    image: postgres:15-alpine
-    container_name: ums-db
-    environment:
-      POSTGRES_DB: ums_db
-      POSTGRES_USER: ums_user
-      POSTGRES_PASSWORD: ${POSTGRES_UMS_PASSWORD}
-    ports: ["5432:5432"]
-    volumes: [ums_pgdata:/var/lib/postgresql/data]
+  # ums-db:
+    # image: postgres:15-alpine
+    # container_name: ums-db
+    # environment:
+      # POSTGRES_DB: ums_db
+      # POSTGRES_USER: ums_user
+      # POSTGRES_PASSWORD: ${POSTGRES_UMS_PASSWORD}
+    # ports: ["5432:5432"]
+    # volumes: [ums_pgdata:/var/lib/postgresql/data]
 
   hr-db:
     image: postgres:15-alpine
@@ -51,20 +51,20 @@ services:
   # ============================================================
   # APIs
   # ============================================================
-  ums-api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
-    container_name: ums-api
-    environment:
-      ASPNETCORE_ENVIRONMENT: Docker
-      ConnectionStrings__DefaultConnection: ${CONNECTION_UMS_DB}
-      RabbitMQ__Host: rabbitmq
-      RabbitMQ__Port: 5672
-      RabbitMQ__UserName: ${RABBITMQ_USER}
-      RabbitMQ__Password: ${RABBITMQ_PASSWORD}
-    ports: ["8080:8080"]
-    depends_on: [ums-db, rabbitmq]
+  # ums-api:
+    # build:
+      # context: .
+      # dockerfile: Dockerfile.api
+    # container_name: ums-api
+    # environment:
+      # ASPNETCORE_ENVIRONMENT: Docker
+      # ConnectionStrings__DefaultConnection: ${CONNECTION_UMS_DB}
+      # RabbitMQ__Host: rabbitmq
+      # RabbitMQ__Port: 5672
+      # RabbitMQ__UserName: ${RABBITMQ_USER}
+      # RabbitMQ__Password: ${RABBITMQ_PASSWORD}
+    # ports: ["8080:8080"]
+    # depends_on: [ums-db, rabbitmq]
 
   hr-api:
     build:
@@ -103,6 +103,6 @@ services:
     depends_on: [identity-db]
 
 volumes:
-  ums_pgdata:
+  # ums_pgdata:
   hr_pgdata:
   identity_pgdata:
