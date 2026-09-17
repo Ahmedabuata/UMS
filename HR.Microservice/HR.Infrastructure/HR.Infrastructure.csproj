@@ -22,3 +22,4 @@
     <ProjectReference Include="..\HR.Shared\HR.Shared.csproj" />
   </ItemGroup>
 </Project>
+<!-- hier no version 9 -->
