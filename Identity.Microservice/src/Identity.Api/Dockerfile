@@ -13,7 +13,9 @@ EXPOSE 8080
 EXPOSE 8081
 
 # إنشاء مستخدم غير جذري (Non-root user) للأمان
-RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
+# نستخدم useradd بدلاً من adduser (لأن .NET 8 images لا تحتوي على adduser)
+RUN useradd --create-home --shell /bin/bash --uid 1000 appuser \
+    && chown -R appuser:appuser /app
 USER appuser
 
 # ------------------------------------------------------------
