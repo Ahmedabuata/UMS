@@ -1,0 +1,47 @@
+name: Dependency Submission (NuGet)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'gateway/**'
+      - 'HR.Microservice/**'
+      - 'Identity.Microservice/**'
+      - 'identity-web/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dependency-submission:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # ✅ فحص المشاريع النشطة فقط
+      - name: Submit Gateway dependencies
+        uses: advanced-security/component-detection-dependency-submission-action@v0.0.2
+        with:
+          directory: './gateway'
+
+      - name: Submit HR.Microservice dependencies
+        uses: advanced-security/component-detection-dependency-submission-action@v0.0.2
+        with:
+          directory: './HR.Microservice'
+
+      - name: Submit Identity.Microservice dependencies
+        uses: advanced-security/component-detection-dependency-submission-action@v0.0.2
+        with:
+          directory: './Identity.Microservice'
+
+      - name: Submit identity-web dependencies
+        uses: advanced-security/component-detection-dependency-submission-action@v0.0.2
+        with:
+          directory: './identity-web'
