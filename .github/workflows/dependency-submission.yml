@@ -27,21 +27,21 @@ jobs:
 
       # ✅ فحص المشاريع النشطة فقط
       - name: Submit Gateway dependencies
-        uses: advanced-security/component-detection-dependency-submission-action@v0.0.2
+        uses: advanced-security/component-detection-dependency-submission-action@v0.1.6
         with:
           directory: './gateway'
 
       - name: Submit HR.Microservice dependencies
-        uses: advanced-security/component-detection-dependency-submission-action@v0.0.2
+        uses: advanced-security/component-detection-dependency-submission-action@v0.1.6
         with:
           directory: './HR.Microservice'
 
       - name: Submit Identity.Microservice dependencies
-        uses: advanced-security/component-detection-dependency-submission-action@v0.0.2
+        uses: advanced-security/component-detection-dependency-submission-action@v0.1.6
         with:
           directory: './Identity.Microservice'
 
       - name: Submit identity-web dependencies
-        uses: advanced-security/component-detection-dependency-submission-action@v0.0.2
+        uses: advanced-security/component-detection-dependency-submission-action@v0.1.6
         with:
           directory: './identity-web'
