@@ -54,7 +54,7 @@ jobs:
           exit-code: '0'
 
       - name: Upload Trivy Config results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: trivy-config-results
@@ -92,7 +92,7 @@ jobs:
           exit-code: '0'
 
       - name: Upload Trivy Image results (Identity.Api)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: trivy-image-identity-results
